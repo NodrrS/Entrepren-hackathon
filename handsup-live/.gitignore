@@ -53,3 +53,8 @@ apps/web/public/demo/
 # handsupai.com deploy folder (holds model files; built by scripts/build-handsupai.mjs)
 deploy/handsupai/public/
 deploy/handsupai/.wrangler/
+
+# demo app (apps/demo): files copied in by apps/demo/scripts/sync-assets.mjs, never committed
+apps/demo/public/models/
+apps/demo/public/mediapipe/
+apps/demo/public/demo/
