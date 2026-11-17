@@ -13,6 +13,7 @@ import { sha256Hex, type EngineError, type LandmarkFrame } from "@handsup/sign-e
 import { createHolisticWebSource, type HolisticWebSource } from "@handsup/sign-engine/sources/mediapipe-holistic-web";
 import { Fc10Stream, FC10, makeLabeler, rawFromHuFrame, type GlossLabel } from "@handsup/fc10-runtime";
 import { createOrtRunner, type OrtRunner } from "@handsup/fc10-runtime/ort";
+import { recordMetric } from "../metrics";
 // Emitted once by Vite as a hashed same-origin asset; its SHA-256 is checked at build time (assets:sync).
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.wasm?url";
 import mpAssets from "../../../../web/mediapipe-assets.json";
@@ -299,7 +300,9 @@ export class RecognizerEngine {
     if (itos.length !== FC10.vocabSize) throw new Error(`vocabulary has ${itos.length} entries, expected ${FC10.vocabSize}`);
     this.label = makeLabeler(itos);
     this.runner = await createOrtRunner({ modelBytes: model, wasmUrl: ortWasmUrl });
-    this.stream = new Fc10Stream({ runner: this.runner });
+    const runner = this.runner;
+    // Time each model step (8 frames) for the latency panel.
+    this.stream = new Fc10Stream({ runner: { run: async (input) => { const t0 = performance.now(); const out = await runner.run(input); recordMetric("model", performance.now() - t0); return out; } } });
     this.stream.on(this.onStreamEvent);
   }
 

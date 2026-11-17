@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { speak, type VoiceStyle } from "@/lib/speech";
+import { timed } from "@/lib/metrics";
 import type { Lang } from "@/lib/recognizer";
 
 /** Fallback voice: the browser's speechSynthesis (on the device; no server needed). */
@@ -34,7 +35,7 @@ export function useSpeechQueue(muted: boolean) {
       try {
         let blob: Blob | null = null;
         try {
-          blob = await speak(item.text, item.lang, item.voice);
+          blob = await timed("speech", speak(item.text, item.lang, item.voice));
         } catch {
           blob = null; // no voice server (static site): the browser's own voice below
         }

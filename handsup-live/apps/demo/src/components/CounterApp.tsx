@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link2, Loader2, Pause, Play, RefreshCw, Smartphone, Square, Upload, Video, Volume2, VolumeX } from "lucide-react";
+import { Gauge, House, Link2, Loader2, Play, RefreshCw, Smartphone, Square, Upload, Video, Volume2, VolumeX } from "lucide-react";
 import type { Crop } from "@/lib/recognizer";
 import { QUICK_COUNTER } from "@/lib/replies";
 import type { Session } from "@/lib/useSession";
@@ -14,6 +14,8 @@ import { HowItWorks } from "./HowItWorks";
 import { Logo } from "./Logo";
 import { MockFigure } from "./MockFigure";
 import { Stage } from "./Stage";
+import { LatencyPanel } from "./LatencyPanel";
+import { setDebug, useDebug } from "@/lib/metrics";
 import { DgsReply } from "./pharmacy/DgsReply";
 import { GuidedCaption, GuidedPanel } from "./pharmacy/GuidedPanel";
 import { usePharmacy } from "@/lib/pharmacy/usePharmacy";
@@ -48,6 +50,7 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
   const [fetching, setFetching] = useState(false);
   const [crop, setCrop] = useState<Crop>("whole");
   const fileRef = useRef<HTMLInputElement>(null);
+  const debug = useDebug();
 
   // A new source starts a new conversation: nothing from the last one is kept.
   const run = (fn: () => Promise<void>) => {
@@ -93,6 +96,14 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
     ph.stopTurn();
     ph.setOn(next);
   };
+  /** Home: back to the start of the counter view (stops the session and the pharmacy mode, clears the conversation). */
+  const goHome = () => {
+    s.stop(); s.reset();
+    ph.stopTurn(); ph.setOn(false);
+    setDgs((d) => ({ steps: [], key: d.key + 1 }));
+    setCustomer(false); setInfo(false); setErr(null); setProblem(null);
+    scrollTo({ top: 0 });
+  };
 
   const bubbles: Bubble[] = s.messages.map((m) => {
     const st = m.lineId === undefined ? undefined : s.sentences[m.lineId];
@@ -111,11 +122,17 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="flex min-h-[72px] shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-b border-hairline px-4 py-3 sm:px-7">
-        <Logo className="h-8 w-auto" />
+        <button type="button" onClick={goHome} aria-label="Home" className="rounded-lg"><Logo className="h-8 w-auto" /></button>
         {s.useMock && <span className="hidden rounded-[14px] bg-secondary px-3 py-1.5 text-[15px] font-semibold md:inline">Apotheke am Markt · Counter 1</span>}
         <span className="rounded-[14px] bg-secondary px-3 py-1.5 text-[15px] font-semibold">Research demo</span>
         <span className="hidden rounded-[14px] bg-info-soft px-3 py-1.5 text-sm font-semibold text-info-ink sm:inline">{ph.on ? "Apotheke · DGS (geführt)" : s.useMock ? "Pharmacy vocabulary" : "Weather vocabulary · DGS"}</span>
         <div className="flex-1" />
+        <button type="button" onClick={goHome} className="inline-flex min-h-11 items-center gap-2 text-[15px] font-medium text-link underline hover:text-link/80">
+          <House className="h-4 w-4" aria-hidden="true" /> Home
+        </button>
+        <button type="button" onClick={() => setDebug(!debug)} aria-pressed={debug} className="inline-flex min-h-11 items-center gap-2 text-[15px] font-medium text-link underline hover:text-link/80">
+          <Gauge className="h-4 w-4" aria-hidden="true" /> Latency
+        </button>
         <button type="button" onClick={onSigner} className="inline-flex min-h-11 items-center gap-2 text-[15px] font-medium text-link underline hover:text-link/80">
           <Smartphone className="h-4 w-4" aria-hidden="true" /> Phone view
         </button>
@@ -169,13 +186,9 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
               {s.running ? (
                 <>
                   <Pill variant="primary" onClick={s.stop}><Square className="h-4 w-4" />Stop</Pill>
-                  {s.source === "weather" && (s.weatherWaiting ? (
-                    <Pill onClick={s.resumeWeather}><Play className="h-4 w-4" />Next clip ({(s.weatherClip ?? 0) + 2} of 3)</Pill>
-                  ) : s.weatherPaused ? (
-                    <Pill onClick={s.resumeWeather}><Play className="h-4 w-4" />Don&apos;t pause</Pill>
-                  ) : (
-                    <Pill onClick={s.pauseWeather}><Pause className="h-4 w-4" />Pause after this clip</Pill>
-                  ))}
+                  {s.source === "weather" && s.weatherWaiting && (
+                    <Pill onClick={s.nextClip}><Play className="h-4 w-4" />Next clip ({(s.weatherClip ?? 0) + 2} of 3)</Pill>
+                  )}
                 </>
               ) : (
                 <Pill variant="primary" disabled={!s.ready} onClick={() => run(() => s.start())}>
@@ -244,6 +257,8 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
               <Equalizer active={s.playing && !s.muted} />
             </div>
           </section>
+
+          {debug && <LatencyPanel />}
 
           {!s.useMock && (
             <div aria-live="polite" className="space-y-2">

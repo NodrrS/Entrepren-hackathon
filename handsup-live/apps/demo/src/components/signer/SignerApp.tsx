@@ -27,7 +27,7 @@ export function SignerApp({ s, onCounter }: { s: Session; onCounter: () => void 
     <>
       {screen === "setup" && <Setup s={s} onStart={() => void start()} onSettings={() => setSheet(true)} starting={starting} />}
       <Signing s={s} active={screen === "signing"} onReply={reply} onEnd={end} />
-      {screen === "reply" && <Reply s={s} onSign={signAgain} onReplace={(t) => s.sendReply(t, { advance: false })} />}
+      {screen === "reply" && <Reply s={s} onSign={signAgain} onReplace={(t) => s.sendReply(t, { advance: false })} onHome={end} />}
       {sheet && <SettingsSheet s={s} onClose={() => setSheet(false)} onCounter={onCounter} />}
     </>
   );

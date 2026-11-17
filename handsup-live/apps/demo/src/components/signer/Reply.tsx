@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, User } from "lucide-react";
+import { House, Send, User } from "lucide-react";
 import type { Session } from "@/lib/useSession";
 import { HoldToSpeak } from "../HoldToSpeak";
 import { PictureReply } from "../PictureReply";
@@ -7,7 +7,7 @@ import { PictureReply } from "../PictureReply";
 const SCALES = [1, 1.25, 1.5];
 
 /** Screen 3 of the signer flow (mockup 3): the staff answer for the signer, and what was said for the staff. */
-export function Reply({ s, onSign, onReplace }: { s: Session; onSign: () => void; onReplace: (text: string) => void }) {
+export function Reply({ s, onSign, onReplace, onHome }: { s: Session; onSign: () => void; onReplace: (text: string) => void; onHome: () => void }) {
   const reply = s.reply;
   const [typing, setTyping] = useState(false);
   const [text, setText] = useState("");
@@ -52,7 +52,12 @@ export function Reply({ s, onSign, onReplace }: { s: Session; onSign: () => void
       {/* What the signer reads */}
       <section className="flex min-h-0 flex-1 flex-col gap-3 px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]" aria-label="The answer">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold text-muted-foreground">{s.useMock ? "Pharmacy says" : "Staff says"}</span>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onHome} aria-label="Home" className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border">
+              <House className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <span className="text-sm font-semibold text-muted-foreground">{s.useMock ? "Pharmacy says" : "Staff says"}</span>
+          </div>
           <button type="button" onClick={() => s.setPictures(!s.pictures)} aria-label="Change how the answer looks"
             className="min-h-11 rounded-[14px] bg-tile px-3 text-[13px] font-semibold text-tile-ink">
             {s.pictures ? "Pictures + simple text" : "Big text"}
