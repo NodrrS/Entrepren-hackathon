@@ -152,9 +152,8 @@ async function runScenario(index: number): Promise<void> {
     if (st.available) {
       const q = sequenceFeatures(featureFrames(d.signs[st.gloss]!), false, 6, "presence");
       const p = q ? classify(q, d.templates) : null;
-      const g = p?.sign ?? st.gloss;
-      const s = d.signs[g];
-      words.push({ gloss: g, de: s?.de ?? st.de, en: s?.en ?? st.en, confidence: p?.confidence ?? 0 });
+      // only the scenario word is ever shown; the recogniser only contributes its confidence
+      words.push({ gloss: st.gloss, de: st.de, en: st.en, confidence: p && p.sign === st.gloss ? p.confidence : 0 });
     } else words.push({ gloss: st.gloss, de: st.de, en: st.en, confidence: null });
     renderWords();
   });
@@ -291,13 +290,16 @@ if (!SRCtor) {
 
 // ---------------------------------------------------------------- camera (experimental)
 const camWords: Word[] = [];
+const FREE_RECOGNITION = false;
 const segmenter = new SignSegmenter((frames) => {
   ui.signing.hidden = true;
   if (guided) {
     onGuidedSegment(frames);
     return;
   }
-  if (!data) return;
+  // Outside the guided turns the camera only shows the skeleton: the page outputs scenario words
+  // only, in order (owner, 2026-11-17). No other word is ever shown.
+  if (!FREE_RECOGNITION || !data) return;
   const q = sequenceFeatures(frames, false, 6, "body");
   const p = q ? classify(q, data.templates) : null;
   if (!p) return;
@@ -522,7 +524,7 @@ function onGuidedSegment(frames: RawSeqFrame[]): void {
   const st = guided.turn.steps[guided.i]!;
   const c = checkStep(st, frames);
   if (c.ok) advance(c.how === "rule" ? "ok" : "loose");
-  else g.hint.textContent = `Noch einmal ${st.gloss}: ${st.hint}`;
+  else g.hint.textContent = `… (erwartet: ${st.gloss}, ${st.hint})`;
 }
 
 async function startGuided(turn: GuidedTurn): Promise<void> {
