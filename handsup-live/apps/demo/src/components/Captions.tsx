@@ -33,7 +33,7 @@ export function Captions({ line, sentence, lang }: { line: CaptionLine | undefin
       ) : line.final ? (
         <p className="m-0 font-display text-2xl font-bold break-words text-muted-foreground">{rawWords(line, lang)}</p>
       ) : (
-        <p className="m-0 text-lg text-muted-foreground">Listening…</p>
+        <p className="m-0 text-lg text-muted-foreground">Watching your signs…</p>
       )}
     </div>
   );

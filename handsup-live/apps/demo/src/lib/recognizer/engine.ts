@@ -10,6 +10,7 @@
  * The seam for a future hosted recognition API is the `Recognizer` surface of this class (see recognizer.ts).
  */
 import { sha256Hex, type EngineError, type LandmarkFrame } from "@handsup/sign-engine";
+import { FilesetResolver, HolisticLandmarker } from "@mediapipe/tasks-vision";
 import { createHolisticWebSource, type HolisticWebSource } from "@handsup/sign-engine/sources/mediapipe-holistic-web";
 import { Fc10Stream, FC10, makeLabeler, rawFromHuFrame, type GlossLabel } from "@handsup/fc10-runtime";
 import { createOrtRunner, type OrtRunner } from "@handsup/fc10-runtime/ort";
@@ -323,6 +324,22 @@ export class RecognizerEngine {
       // Let the browser cache the 13.7 MB .task (the source asks for no-store by default); the hash is still checked.
       fetchFn: (input, init) => this.countedFetch(String(input), { ...init, cache: "default" }),
       getUserMedia: (c) => this.mediaProvider(c),
+      // Lower detection thresholds than MediaPipe's 0.5 defaults, so a small or distant signer (or a signer shown on a
+      // screen) is still tracked. Video only: the camera never asks for audio.
+      createLandmarker: async (modelBytes, d) => {
+        const fileset = await FilesetResolver.forVisionTasks(mpAssets.wasmBasePath);
+        return HolisticLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetBuffer: modelBytes, delegate: d },
+          runningMode: "VIDEO",
+          outputFaceBlendshapes: false,
+          outputPoseSegmentationMasks: false,
+          minPoseDetectionConfidence: 0.3,
+          minPosePresenceConfidence: 0.3,
+          minHandLandmarksConfidence: 0.3,
+          minFaceDetectionConfidence: 0.3,
+          minFacePresenceConfidence: 0.3,
+        });
+      },
       // Read at every start(); ignored when the "camera" is an uploaded file.
       get constraints(): MediaStreamConstraints {
         return engine.cameraConstraints();
