@@ -101,6 +101,8 @@ Also planned: a federal competence centre for DGS ([Ärzteblatt on BGG](https://
 
 **Positioning line.** Big tech is starting with ASL on its own phones. Hands Up runs in any browser, on the device, starts with DGS, and is built for the counter.
 
+**Our own model.** We don't resell someone else's API: we built and trained our own streaming sign model on a German Sign Language dataset (RWTH-PHOENIX-Weather 2014, 1,233 DGS signs). It runs in the browser, so every conversation costs €0 in AI. Today it knows weather-forecast vocabulary; the €15k model-training line in the ask retrains it on our own consented counter signs.
+
 ---
 
 ## 4. Costs
@@ -160,7 +162,7 @@ This is typical for software with on-device inference. The real costs sit in R&D
 
 The deck only asks for "mentors and funding". Make it concrete:
 
-There are two versions. The **lean version for the slide is €290k for 12 months**, with founder salaries of €2,500 a month. That breaks even at ~550 paying counters; see [SOFIA.md](SOFIA.md), slide C. The full version at market salaries is below.
+There are two versions. The **lean version for the slide is €305k for 12 months**, with founder salaries of €2,500 a month. It includes €15k to retrain the model on counter signs (today it only knows weather-forecast vocabulary) and €17.5k for marketing and launch. That breaks even at ~550 paying counters; see [SOFIA.md](SOFIA.md), slide C, for every line explained. The full version at market salaries is below.
 
 **Full version: €600k pre-seed for 18 months.** It could be EXIST (up to €3k/month per founder plus €30k in material costs ([PtJ](https://www.ptj.de/foerdermoeglichkeiten/exist/gruendungsstipendium))) plus angels and impact funds.
 

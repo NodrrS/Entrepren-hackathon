@@ -60,8 +60,9 @@ The wow moment, visible in 30 seconds: signs go in and words appear in under hal
 
 **3. How it works** (one panel or page)
 - Camera → hand and body points (MediaPipe) → sign model → words, all on the device.
+- Our own model: we built and trained it ourselves, on a German Sign Language dataset (RWTH-PHOENIX-Weather 2014, 1,233 DGS signs). It streams a result every 0.32 s and runs in the browser in about 2–10 ms per step.
 - Privacy: no video leaves the device, no cookies.
-- Honest limit: today it is a research model on about 1,200 DGS signs. It is not for medical, legal or emergency use.
+- Honest limit: the training data is TV weather forecasts and for research only, so today the model knows weather vocabulary. The next step is retraining on our own consented counter signs. It is not for medical, legal or emergency use.
 
 **4. For businesses**
 - Plans: Free for signers / Counter €49 / Service €299 (from [SOFIA.md](SOFIA.md), slide B).

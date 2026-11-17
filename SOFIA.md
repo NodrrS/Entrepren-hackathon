@@ -35,7 +35,7 @@ Draft these for the deck. Keep them to one message per slide.
 - **Who pays and how much:** free for signers, €49/month per counter, €299 for public offices and clinics.
 - **Market:** ~135k counters in Germany, the €80M figure, the EU figure. Label them as our estimate.
 - **Competition:** "Big tech starts with American Sign Language on its own phones. We start with German Sign Language, in any browser, at the counter."
-- **Ask:** €290k for 12 months (lean salaries; €600k at market salaries over 18 months). Only use a euro figure if Karmel agrees. Add pilots and data partners, and put today's results here.
+- **Ask:** €305k for 12 months (lean salaries; €600k at market salaries over 18 months). Only use a euro figure if Karmel agrees. Add pilots and data partners, and put today's results here.
 
 The full drafts of the Cost to run, Plans and Ask slides are in section 4b below.
 
@@ -102,22 +102,24 @@ Build them in the same style as Nodir's example deck: one big claim as the title
 
 #### Slide C: THE ASK
 
-**Big number:** **€290k**, for the first 12 months, team of 4
+**Big number:** **€305k**, for the first 12 months, team of 4
 
-**Under it:** Break-even at about **550 paying counters**. This round buys our own consented data and the proof that counters pay.
+**Under it:** Break-even at about **550 paying counters**. This round buys our own consented data, a model trained on it, and the proof that counters pay.
 
 **Use of funds (bar chart):**
 
-| Item | € |
-| --- | --- |
-| Team of 4: founder, mobile engineer, Deaf co-founder, sales | 144k |
-| Consented DGS data: 500 signs, 50 Deaf signers | 55k |
-| Contingency, 15% | 38k |
-| Setup, legal, GDPR, tools | 20k |
-| Deaf community partners and co-design | 15k |
-| Pilots: tablets, travel, events | 15k |
-| Hosting and training compute | 3k |
-| **Total** | **~290k** |
+| Item | € | What it pays for |
+| --- | --- | --- |
+| Team of 4: founder, mobile engineer, Deaf co-founder, sales | 144k | 4 people for 12 months at €2,500 a month each, plus 20% employer costs (4 × €2,500 × 12 × 1.2). The sales hire is our main channel to pharmacies and public offices. |
+| Consented DGS data: 500 signs, 50 Deaf signers | 55k | Our own recordings of the counter vocabulary, 5 takes per sign: about 1,400 signer-hours at €35, plus 15% for quality checks. It replaces today's research-only training data. |
+| Contingency, ~9% | 23k | A buffer for overruns. It was €38k (15%); €15k moved to marketing. |
+| Setup, legal, GDPR, tools | 20k | Founding the company, a privacy and GDPR review, contracts with pilot partners, software tools. |
+| Marketing and launch | 17.5k | "Deaf-friendly counter" stickers, pharmacy association events, Deaf community channels, launch material. €15k from contingency plus €2.5k that was planned for pilot tablets. |
+| Model training | 15k | Today the model only knows the weather-forecast vocabulary it was trained on (research data). This pays for GPU time and experiments to retrain it on our own counter-sign recordings. Same figure as the training-compute line in NUMBERS.md. |
+| Deaf community partners and co-design | 15k | Fees to Deaf associations and Deaf testers who shape and test the product with us. |
+| Pilots: onboarding, travel | 12.5k | Setting up and visiting the 10 pilot counters. No hardware: pilots use the counter's own tablet or phone. |
+| Hosting | 3k | Servers and services for a year (about $1,550 fixed; see slide A) plus margin. AI runs on the user's device, so this doesn't grow with use. |
+| **Total** | **305k** | |
 
 **Timeline strip:**
 
