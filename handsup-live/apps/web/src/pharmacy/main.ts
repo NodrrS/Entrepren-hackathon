@@ -18,7 +18,7 @@ import { cameraErrorHelp, cameraProblem } from "../live/camera-support";
 import { SignSegmenter, aspectCorrect, classify, sequenceFeatures, type RawSeqFrame } from "./classify";
 import { DgsPlayer, featureFrames, loadDgs, stepsFor, type DgsData, type Step, type View } from "./dgs";
 import { normalise } from "./words";
-import { TURN_1, TURN_3, checkStep, type GuidedTurn } from "./guided";
+import { GuidedTracker, TURN_1, TURN_3, type GuidedTurn } from "./guided";
 
 const guard = installNetworkGuard(window);
 guard.onBlocked((r) => console.warn(`Hands Up blocked an outbound ${r.api} request to ${r.url}`));
@@ -293,10 +293,7 @@ const camWords: Word[] = [];
 const FREE_RECOGNITION = false;
 const segmenter = new SignSegmenter((frames) => {
   ui.signing.hidden = true;
-  if (guided) {
-    onGuidedSegment(frames);
-    return;
-  }
+  if (guided) return; // guided mode uses the rolling-window tracker (pushCamera), not pauses
   // Outside the guided turns the camera only shows the skeleton: the page outputs scenario words
   // only, in order (owner, 2026-11-17). No other word is ever shown.
   if (!FREE_RECOGNITION || !data) return;
@@ -320,9 +317,15 @@ function pushCamera(t: number, f: RawSeqFrame): void {
     segmenter.reset();
   }
   for (let tick = tick0 + k * 40; tick <= t; tick = tick0 + k * 40) {
-    segmenter.push(lastRaw && tick - lastRaw.t < t - tick ? lastRaw.f : f);
+    const fr = lastRaw && tick - lastRaw.t < t - tick ? lastRaw.f : f;
+    segmenter.push(fr);
+    if (guided) {
+      const a = guided.tracker.push(fr);
+      if (a) advance(a.how === "rule" ? "ok" : "loose");
+    }
     k++;
   }
+  if (guided) showDebug();
   lastRaw = { t, f };
   ui.signing.hidden = !segmenter.inSign;
 }
@@ -468,7 +471,23 @@ const g = {
   stop: $<HTMLButtonElement>("g-stop"),
   cameraBox: $<HTMLDetailsElement>("camera-box"),
 };
-let guided: { turn: GuidedTurn; i: number; marks: ("ok" | "loose" | "skip")[] } | null = null;
+let guided: { turn: GuidedTurn; i: number; marks: ("ok" | "loose" | "skip")[]; tracker: GuidedTracker } | null = null;
+const assistBox = $<HTMLInputElement>("g-assist");
+const detailsBox = $<HTMLInputElement>("g-details");
+const debugEl = $("g-debug");
+assistBox.addEventListener("change", () => {
+  if (guided) guided.tracker.assist = assistBox.checked;
+});
+detailsBox.addEventListener("change", () => (debugEl.hidden = !detailsBox.checked));
+let lastDebug = 0;
+function showDebug(): void {
+  if (!guided || debugEl.hidden) return;
+  const now = performance.now();
+  if (now - lastDebug < 150) return;
+  lastDebug = now;
+  const d = guided.tracker.debug;
+  debugEl.textContent = `Hände: ${d.hands} · Hand–Kopf: ${Number.isFinite(d.headDist) ? d.headDist.toFixed(2) : "–"} · Bewegung: ${(d.motion * 100).toFixed(1)} · Schritt: ${d.step}`;
+}
 let guidedView = false;
 
 function renderGuided(): void {
@@ -519,19 +538,12 @@ function advance(mark: "ok" | "loose" | "skip"): void {
   renderGuided();
 }
 
-function onGuidedSegment(frames: RawSeqFrame[]): void {
-  if (!guided) return;
-  const st = guided.turn.steps[guided.i]!;
-  const c = checkStep(st, frames);
-  if (c.ok) advance(c.how === "rule" ? "ok" : "loose");
-  else g.hint.textContent = `… (erwartet: ${st.gloss}, ${st.hint})`;
-}
-
 async function startGuided(turn: GuidedTurn): Promise<void> {
   player?.stop();
   ui.player.hidden = true;
   ui.tabReply.classList.remove("pulse");
-  guided = { turn, i: 0, marks: [] };
+  guided = { turn, i: 0, marks: [], tracker: new GuidedTracker(turn) };
+  guided.tracker.assist = assistBox.checked;
   guidedView = true;
   words.length = 0;
   renderWords();
@@ -546,7 +558,10 @@ async function startGuided(turn: GuidedTurn): Promise<void> {
 }
 g.turn1.addEventListener("click", () => void startGuided(TURN_1));
 g.turn3.addEventListener("click", () => void startGuided(TURN_3));
-g.next.addEventListener("click", () => advance("skip"));
+g.next.addEventListener("click", () => {
+  guided?.tracker.skip();
+  advance("skip");
+});
 g.stop.addEventListener("click", () => {
   guided = null;
   renderGuided();

@@ -18,7 +18,7 @@
     <header class="top">
       <div class="brand">
         <span class="logo" aria-hidden="true">✋</span>
-        <h1>Hands Up <span>Apotheke</span></h1>
+        <h1 class="apo-title"><span>Apotheke</span> <small>Hands Up</small></h1>
       </div>
       <span class="badge">Forschungsdemo</span>
     </header>
@@ -62,11 +62,16 @@
       <section id="pane-customer" class="pane">
         <div class="panel guided">
           <p class="guided-title"><strong>Geführtes Szenario mit Kamera</strong></p>
-          <p class="fineprint">Geführtes Szenario: erkennt einfache Merkmale der erwarteten Gebärden (Handposition am Kopf oder vor der Brust, Bewegung). Schritte mit „~“ zählen jede deutliche Gebärde. Keine freie Erkennung.</p>
+          <p class="fineprint">Geführtes Szenario: erkennt einfache Merkmale der erwarteten Gebärden (Handposition am Kopf oder vor der Brust, Bewegung), fließend ohne Pausen. Schritte mit „~“ zählen jede deutliche Gebärde; „Assistenz“ geht nach 1,5 s Gebärden weiter. Keine freie Erkennung.</p>
           <div class="controls">
             <button id="g-turn1" type="button" class="primary big-btn">▶ Teil 1: Kundin (Kamera)</button>
             <button id="g-turn3" type="button">▶ Teil 3: „Danke“ (Kamera)</button>
           </div>
+          <div class="g-opts">
+            <label class="toggle"><input id="g-assist" type="checkbox" checked /> Assistenz</label>
+            <label class="toggle"><input id="g-details" type="checkbox" /> Details</label>
+          </div>
+          <p id="g-debug" class="g-debug" hidden></p>
           <ol id="g-steps" class="g-steps"></ol>
           <p id="g-hint" class="g-hint"></p>
           <div class="controls">

@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { aspectCorrect, type RawSeqFrame } from "../src/pharmacy/classify";
-import { TURN_1, TURN_3, checkStep } from "../src/pharmacy/guided";
+import { GuidedTracker, TURN_1, TURN_3, checkStep } from "../src/pharmacy/guided";
 
 const path = new URL("../public/pharmacy/dgs/dgs.json", import.meta.url);
 const have = existsSync(path);
@@ -28,5 +28,17 @@ describe.skipIf(!have)("guided rules on the SignDict signs (local data)", () => 
     expect(checkStep(step("BITTE"), clip(d, "BITTE")).ok, rows.join(" | ")).toBe(true);
     expect(checkStep(step("DANKE"), clip(d, "DANKE")).ok, rows.join(" | ")).toBe(true);
     console.info(rows.join("\n"));
+  });
+
+  it("walks through the steps on continuous signing (no pauses)", () => {
+    const t = new GuidedTracker(TURN_1);
+    const flow = ["HALLO", "ARZT", "GEHEN", "DEUTSCH", "KANN-NICHT", "BITTE", "MEDIKAMENT"].flatMap((g) => clip(d, g));
+    const hits: string[] = [];
+    for (const f of flow) {
+      const a = t.push(f);
+      if (a) hits.push(`${TURN_1.steps[a.index]!.gloss}:${a.how}`);
+    }
+    expect(t.index, hits.join(" ")).toBeGreaterThanOrEqual(5);
+    expect(hits[0]).toMatch(/^HALLO/);
   });
 });

@@ -178,3 +178,147 @@ export function checkStep(step: GuidedStep, frames: readonly RawSeqFrame[]): Che
   }
   return { ok: false, how: "rule" };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Rolling-window tracker (no pauses needed): rules run on the last ~0.6 s on every frame; when the
+// current step fires, the step advances at once and the window is cleared, so a signer can sign
+// the whole sentence in one flow. Assistenz: if the person is clearly signing but the step has not
+// matched within 1.5 s, it advances with "~" so the demo never stalls.
+
+export interface TrackerDebug {
+  hands: number;
+  headDist: number; // closest fingertip to the head, in shoulder widths (Infinity without hands)
+  motion: number; // mean hand speed over the window, shoulder widths per frame
+  step: string;
+}
+
+export interface Advance {
+  readonly index: number;
+  readonly how: "rule" | "loose" | "assist";
+}
+
+interface Pt {
+  x: number;
+  y: number;
+}
+interface FrameFeat {
+  hands: { w: Pt; tip: Pt }[]; // relative to the nose, in shoulder widths
+  shY: number; // shoulder line relative to the nose
+}
+
+const WINDOW = 15; // 0.6 s at 25 FPS
+
+export class GuidedTracker {
+  private buf: FrameFeat[] = [];
+  private ref: { nx: number; ny: number; sy: number; w: number } | null = null;
+  private stepFrames = 0;
+  index = 0;
+  assist = true;
+  debug: TrackerDebug = { hands: 0, headDist: Infinity, motion: 0, step: "" };
+
+  constructor(private readonly turn: GuidedTurn) {}
+
+  get done(): boolean {
+    return this.index >= this.turn.steps.length;
+  }
+
+  /** Skip the current step (presenter). */
+  skip(): void {
+    this.next();
+  }
+
+  private next(): void {
+    this.index++;
+    this.buf = [];
+    this.stepFrames = 0;
+  }
+
+  /** One 25 FPS frame (aspect-corrected). Returns the advance, if the current step fired. */
+  push(f: RawSeqFrame): Advance | null {
+    if (this.done) return null;
+    const p = f.points;
+    if (f.present[0]) {
+      const w = Math.hypot(p[33]! - p[36]!, p[34]! - p[37]!);
+      if (w > 0.01) {
+        const r = { nx: p[0]!, ny: p[1]!, sy: (p[34]! + p[37]!) / 2, w };
+        this.ref = this.ref ? { nx: 0.7 * this.ref.nx + 0.3 * r.nx, ny: 0.7 * this.ref.ny + 0.3 * r.ny, sy: 0.7 * this.ref.sy + 0.3 * r.sy, w: 0.8 * this.ref.w + 0.2 * r.w } : r;
+      }
+    }
+    const r = this.ref;
+    const feat: FrameFeat = { hands: [], shY: r ? (r.sy - r.ny) / r.w : 0.6 };
+    if (r) {
+      for (const [h, s] of [[1, 33], [2, 54]] as const) {
+        if (!f.present[h]) continue;
+        feat.hands.push({
+          w: { x: (p[s * 3]! - r.nx) / r.w, y: (p[s * 3 + 1]! - r.ny) / r.w },
+          tip: { x: (p[(s + 8) * 3]! - r.nx) / r.w, y: (p[(s + 8) * 3 + 1]! - r.ny) / r.w },
+        });
+      }
+    }
+    this.buf.push(feat);
+    if (this.buf.length > WINDOW) this.buf.shift();
+    this.stepFrames++;
+
+    const step = this.turn.steps[this.index]!;
+    const motion = this.motion();
+    const headDists = this.buf.flatMap((b) => b.hands.map((h) => Math.hypot(h.tip.x, h.tip.y + 0.1)));
+    this.debug = { hands: feat.hands.length, headDist: headDists.length ? Math.min(...headDists.slice(-3)) : Infinity, motion, step: step.gloss };
+
+    const fired = this.rule(step.rule, motion);
+    if (fired) {
+      const a: Advance = { index: this.index, how: step.rule === "loose" ? "loose" : "rule" };
+      this.next();
+      return a;
+    }
+    // Assistenz: active signing for 1.5 s without a match -> advance with "~"
+    if (this.assist && this.stepFrames >= 38 && motion > 0.02 && feat.hands.length) {
+      const a: Advance = { index: this.index, how: "assist" };
+      this.next();
+      return a;
+    }
+    return null;
+  }
+
+  /** Mean wrist speed (shoulder widths per frame) over the window, for frames where the hand is seen in both. */
+  private motion(): number {
+    let sum = 0, n = 0;
+    for (let i = 1; i < this.buf.length; i++) {
+      const a = this.buf[i - 1]!, b = this.buf[i]!;
+      const k = Math.min(a.hands.length, b.hands.length);
+      for (let j = 0; j < k; j++) {
+        sum += Math.hypot(b.hands[j]!.w.x - a.hands[j]!.w.x, b.hands[j]!.w.y - a.hands[j]!.w.y);
+        n++;
+      }
+    }
+    return n ? sum / n : 0;
+  }
+
+  private count(pred: (h: { w: Pt; tip: Pt }, b: FrameFeat) => boolean): number {
+    return this.buf.filter((b) => b.hands.some((h) => pred(h, b))).length;
+  }
+
+  private rule(kind: RuleKind, motion: number): boolean {
+    const nearHead = (h: { tip: Pt }) => Math.hypot(h.tip.x, h.tip.y + 0.1) < 1.0;
+    const aboveShoulders = (h: { tip: Pt }, b: FrameFeat) => h.tip.y < b.shY;
+    switch (kind) {
+      case "hallo":
+        // a hand up at head height (beside or in front of the head) with some motion
+        return this.count((h, b) => aboveShoulders(h, b) && Math.abs(h.tip.x) < 1.6) >= 5 && motion > 0.015;
+      case "kopf":
+        // any hand above the shoulder line near the head
+        return this.count((h, b) => aboveShoulders(h, b) && nearHead(h)) >= 4;
+      case "schmerz":
+        // movement near the head for about 0.4 s
+        return this.count(nearHead) >= 10 && motion > 0.01;
+      case "bitte":
+        // a hand below the shoulders moving
+        return this.count((h, b) => h.w.y > b.shY) >= 8 && motion > 0.015;
+      case "danke":
+        // a hand near the mouth/chin with motion
+        return this.count((h) => Math.hypot(h.tip.x, h.tip.y - 0.3) < 0.8) >= 4 && motion > 0.015;
+      case "loose":
+        // any 0.35 s burst of hand motion
+        return this.buf.length >= 9 && this.buf.slice(-9).every((b) => b.hands.length > 0) && motion > 0.02;
+    }
+  }
+}

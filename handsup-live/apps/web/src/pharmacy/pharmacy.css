@@ -61,3 +61,7 @@
 .g-hint { min-height: 1.4em; color: var(--warn); font-weight: 600; margin: 4px 0; }
 .mode.pulse { animation: pulse 1s ease-in-out infinite alternate; }
 @keyframes pulse { from { box-shadow: 0 0 0 0 rgba(255, 90, 54, 0.8); } to { box-shadow: 0 0 0 10px rgba(255, 90, 54, 0); } }
+.apo-title { font-size: clamp(1.8rem, 8vw, 2.4rem); }
+.apo-title small { font-size: 0.9rem; color: var(--muted); font-weight: 600; }
+.g-opts { display: flex; gap: 16px; }
+.g-debug { font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; background: #000; padding: 6px 8px; border-radius: 6px; color: var(--sky); margin: 4px 0; }
