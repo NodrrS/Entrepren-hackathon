@@ -1,4 +1,4 @@
-import { SkipForward, Square } from "lucide-react";
+import { Check, SkipForward, Square } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { TURNS, type usePharmacy } from "@/lib/pharmacy/usePharmacy";
@@ -25,6 +25,7 @@ export function GuidedPanel({ ph, disabled, className }: { ph: Ph; disabled: boo
             {i === 0 ? "▶ Teil 1: Kundin" : "▶ Teil 3: „Danke“"}
           </Pill>
         ))}
+        <Pill variant="primary" disabled={!ph.active} onClick={ph.finish} title="End the turn: the signs so far become a sentence and are spoken"><Check className="h-4 w-4" />Done</Pill>
         <Pill disabled={!ph.active} onClick={ph.skip}><SkipForward className="h-4 w-4" />Weiter</Pill>
         <Pill disabled={!ph.active} onClick={ph.stopTurn}><Square className="h-4 w-4" />Beenden</Pill>
       </div>

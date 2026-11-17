@@ -67,21 +67,24 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
       {/* For the signer */}
       <section className="flex min-h-0 flex-1 flex-col gap-3 bg-stage p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" aria-label="Your signs">
         <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2 text-sm font-semibold text-white">
-            <span className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
+          <span className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-white">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
             {s.source === "weather"
               ? s.forecastDone ? "Forecast finished" : s.weatherWaiting ? `Paused after clip ${(s.weatherClip ?? 0) + 1} of 3` : `Weather forecast · clip ${(s.weatherClip ?? 0) + 1} of 3`
-              : s.source === "pharmacy" ? "Apotheke · DGS · geführt" : "Reading your signs"}
+              : s.source === "pharmacy" ? "Apotheke" : "Reading your signs"}
           </span>
-          <div className="flex gap-2">
+          <div className="flex shrink-0 gap-2">
             {s.source === "pharmacy" && s.ph.active && (
-              <button type="button" onClick={s.ph.skip} className="min-h-11 rounded-full bg-primary px-4 text-[15px] font-bold text-primary-foreground">Weiter</button>
+              <>
+                <button type="button" onClick={s.ph.finish} className="min-h-11 rounded-full bg-primary px-4 text-[15px] font-bold text-primary-foreground">Done</button>
+                <button type="button" onClick={s.ph.skip} className="min-h-11 rounded-full bg-stage-chip px-4 text-[15px] font-semibold text-white">Weiter</button>
+              </>
             )}
             {s.source === "weather" && s.weatherWaiting && (
               <button type="button" onClick={s.nextClip} className="min-h-11 rounded-full bg-primary px-4 text-[15px] font-bold text-primary-foreground">Next clip</button>
             )}
             <button type="button" onClick={onEnd} className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white px-4 text-[15px] font-semibold text-ink">
-              <House className="h-4 w-4" aria-hidden="true" />Home
+              <House className="h-4 w-4" aria-hidden="true" /><span className={s.source === "pharmacy" && s.ph.active ? "sr-only" : undefined}>Home</span>
             </button>
           </div>
         </div>

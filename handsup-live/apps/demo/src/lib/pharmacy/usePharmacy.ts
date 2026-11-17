@@ -94,6 +94,17 @@ export function usePharmacy(real: RecognizerApi, onTurnDone: (turn: GuidedTurn, 
     advance("skip");
   }, [advance]);
 
+  /**
+   * Done: ends the turn now. The steps not signed yet count as skipped, so the turn finishes and its recognised
+   * signs go on to the LLM and the voice (or the written sentence if nothing was recognised).
+   */
+  const finish = useCallback(() => {
+    for (let guard = 0; tracker.current && !tracker.current.done && guard < 100; guard++) {
+      tracker.current.skip();
+      advance("skip");
+    }
+  }, [advance]);
+
   const stopTurn = useCallback(() => {
     tracker.current = null;
     setState({ turn: null, index: 0, marks: [], debug: null });
@@ -104,5 +115,5 @@ export function usePharmacy(real: RecognizerApi, onTurnDone: (turn: GuidedTurn, 
     if (tracker.current) tracker.current.assist = v;
   }, []);
 
-  return { on, setOn, assist, setAssist, state, data, dataError, startTurn, skip, stopTurn, active: !!tracker.current };
+  return { on, setOn, assist, setAssist, state, data, dataError, startTurn, skip, finish, stopTurn, active: !!tracker.current };
 }
