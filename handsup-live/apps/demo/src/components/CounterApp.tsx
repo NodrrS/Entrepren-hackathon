@@ -157,7 +157,7 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
             caption={ph.on ? <GuidedCaption ph={ph} sentence={s.pharmacySentence} lang={s.lang} /> : <Captions line={newest} sentence={newest ? s.sentences[newest.id] : undefined} lang={s.lang} />}
           />
 
-          {ph.on && <GuidedPanel ph={ph} disabled={!s.ready} />}
+          {ph.on && <GuidedPanel ph={ph} disabled={!s.ready} onRestart={() => { s.restartPharmacy(); setCustomer(false); setProblem(null); }} />}
 
           <section aria-labelledby="session-h" className="space-y-2">
             <h2 id="session-h" className={SECTION}>Conversation</h2>

@@ -147,7 +147,15 @@ export function useSession() {
     setWeatherWaiting(true);
   }, [real.mode, weatherClip, real]);
 
-  const reset = useCallback(() => { setMessages([]); setSentences({}); setReply(null); setForecastDone(false); setPharmacySentence(undefined); }, []);
+  // Bumped on every reset: answers still on their way from before (an LLM sentence) are then dropped.
+  const generation = useRef(0);
+  /** A fresh conversation: nothing kept, the pharmacy scenario starts again at part 1, late answers are dropped. */
+  const reset = useCallback(() => {
+    generation.current++;
+    setMessages([]); setSentences({}); setReply(null); setForecastDone(false); setPharmacySentence(undefined);
+    nextTurn.current = TURN_1;
+    setDgs((d) => ({ steps: [], key: d.key + 1 }));
+  }, []);
   const stopWeather = useCallback(() => { clearTimeout(weatherTimer.current); setWeatherClip(null); setWeatherWaiting(false); }, []);
   /** Plays the next forecast clip (the forecast waits after each one). */
   const nextClip = useCallback(() => {
@@ -201,7 +209,9 @@ export function useSession() {
   const [pharmacySentence, setPharmacySentence] = useState<SentenceState | undefined>(undefined);
   interpretRef.current = (turn, marks) => {
     const id = -++pharmacyId.current;
+    const gen = generation.current;
     chain.current = chain.current.then(async () => {
+      if (gen !== generation.current) return; // restarted meanwhile
       // The guided recogniser works in German (its words and its turn sentence are German), so the LLM writes
       // German too and the German voice speaks it, whatever the page language is.
       const { speakOn: speak, voice: v } = settings.current;
@@ -215,6 +225,7 @@ export function useSession() {
         setPharmacySentence("pending");
         try {
           const out = await timed("sentence", rewrite(glosses, "", l, undefined, "pharmacy"));
+          if (gen !== generation.current) return; // restarted while the sentence was being written
           const done = { text: out.sentence, ms: out.ms, lang: l };
           setSentences((s) => ({ ...s, [id]: done }));
           setPharmacySentence(done);
@@ -231,9 +242,11 @@ export function useSession() {
 
   /** Pharmacy: the next guided turn (turn 3 after turn 1), keeping the conversation. */
   const nextPharmacyTurn = useCallback(() => { setPharmacySentence(undefined); return ph.startTurn(nextTurn.current); }, [ph]);
+  /** Pharmacy: start over from part 1 with an empty conversation (the camera keeps running). */
+  const restartPharmacy = useCallback(() => { ph.stopTurn(); reset(); }, [ph, reset]);
 
   return {
-    say, ph, dgs, nextPharmacyTurn, pharmacySentence,
+    say, ph, dgs, nextPharmacyTurn, restartPharmacy, pharmacySentence,
     real, mock, source, setSource, useMock, weatherClip, forecastDone, weatherWaiting, nextClip,
     voice, setVoice,
     lang, setLang, speakOn, setSpeakOn, muted, setMuted, playing,

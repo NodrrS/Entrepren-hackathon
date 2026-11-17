@@ -1,4 +1,4 @@
-import { Check, SkipForward, Square } from "lucide-react";
+import { Check, RotateCcw, SkipForward, Square } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { TURNS, type usePharmacy } from "@/lib/pharmacy/usePharmacy";
@@ -9,7 +9,7 @@ import { Pill, Switch } from "../Controls";
 type Ph = ReturnType<typeof usePharmacy>;
 
 /** Pharmacy (DGS) guided scenario: turn buttons, the expected steps, Weiter, Assistenz and a tuning strip. */
-export function GuidedPanel({ ph, disabled, className }: { ph: Ph; disabled: boolean; className?: string | undefined }) {
+export function GuidedPanel({ ph, disabled, onRestart, className }: { ph: Ph; disabled: boolean; onRestart?: (() => void) | undefined; className?: string | undefined }) {
   const [details, setDetails] = useState(false);
   const { turn, index, marks, debug } = ph.state;
   return (
@@ -28,6 +28,7 @@ export function GuidedPanel({ ph, disabled, className }: { ph: Ph; disabled: boo
         <Pill variant="primary" disabled={!ph.active} onClick={ph.finish} title="End the turn: the signs so far become a sentence and are spoken"><Check className="h-4 w-4" />Done</Pill>
         <Pill disabled={!ph.active} onClick={ph.skip}><SkipForward className="h-4 w-4" />Weiter</Pill>
         <Pill disabled={!ph.active} onClick={ph.stopTurn}><Square className="h-4 w-4" />Beenden</Pill>
+        {onRestart && <Pill onClick={onRestart} title="Start the scenario again from part 1, with an empty conversation"><RotateCcw className="h-4 w-4" />Neu starten</Pill>}
       </div>
       <div className="flex flex-wrap items-center gap-x-4">
         <Switch checked={ph.assist} onChange={ph.setAssist} label="Assistenz" />
