@@ -70,7 +70,7 @@ export function HoldToSpeak({ lang, onText, onProblem, variant = "wide", classNa
     }
   };
 
-  const label = state === "recording" ? "Listening… let go to send" : state === "working" ? "Writing it down…" : children;
+  const label = state === "recording" ? "Recording your answer… let go to send" : state === "working" ? "Writing it down…" : children;
   const Icon = state === "working" ? Loader2 : Mic;
   return (
     <button
