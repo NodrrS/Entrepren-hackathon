@@ -50,10 +50,52 @@ const EXAMPLES = {
   ],
 };
 
+// Pharmacy topic: the guided DGS scenario (a Deaf customer at the counter). The sentences are what the customer
+// means, in the first person, from the signs that were recognised (skipped signs are not sent).
+const PHARMACY_SYSTEM = {
+  en: [
+    "You turn German Sign Language (DGS) glosses from a Deaf customer at a pharmacy counter into what the customer means: short, natural English, in the first person, as the customer would say it to the pharmacist.",
+    "The glosses are in sign order. HIER is pointing at something (here is ...), REZEPT is the prescription, ARZT the doctor, GEHEN went, KANN-NICHT cannot, HILFE or HELFEN help.",
+    "Use only what the glosses say. Do not add symptoms, medicines, doses or facts. If some signs are missing, write what the remaining signs mean.",
+    "Reply with the sentences only: no quotes, no notes, no explanation.",
+  ].join(" "),
+  de: [
+    "Du machst aus Glossen der Deutschen Gebärdensprache (DGS) einer gehörlosen Kundin an der Apothekentheke das, was sie meint: kurz, natürlich, auf Deutsch, in der Ich-Form, so wie sie es zur Apothekerin sagen würde.",
+    "Die Glossen stehen in Gebärdenreihenfolge. HIER zeigt auf etwas (hier ist ...), REZEPT ist das Rezept, ARZT der Arzt, GEHEN war (gegangen), KANN-NICHT kann nicht, HILFE oder HELFEN Hilfe.",
+    "Verwende nur, was in den Glossen steht. Füge keine Beschwerden, Medikamente, Dosen oder Fakten hinzu. Fehlen Gebärden, schreibe, was die übrigen bedeuten.",
+    "Antworte nur mit den Sätzen: keine Anführungszeichen, keine Anmerkungen, keine Erklärung.",
+  ].join(" "),
+};
+
+const PHARMACY_EXAMPLES = {
+  en: [
+    ["HALLO KOPF SCHMERZ ARZT GEHEN HIER REZEPT DEUTSCH LESEN KANN-NICHT BITTE HELFEN", "Hello, I have a headache. I went to the doctor, here is the prescription. I can't read German, please help me."],
+    ["HALLO KOPF SCHMERZ REZEPT", "Hello, I have a headache. I have a prescription."],
+    ["HALLO ARZT REZEPT BITTE HELFEN", "Hello, I have a prescription from the doctor. Please help me."],
+    ["KOPF SCHMERZ GEHEN REZEPT LESEN KANN-NICHT", "I have a headache. I went and got a prescription. I can't read it."],
+    ["VERSTEHEN DANKE HILFE", "Ah, I understand. Thank you for your help."],
+    ["DANKE", "Thank you."],
+  ],
+  de: [
+    ["HALLO KOPF SCHMERZ ARZT GEHEN HIER REZEPT DEUTSCH LESEN KANN-NICHT BITTE HELFEN", "Hallo, ich habe Kopfschmerzen. Ich war beim Arzt, hier ist das Rezept. Ich kann kein Deutsch lesen, bitte helfen Sie mir."],
+    ["HALLO KOPF SCHMERZ REZEPT", "Hallo, ich habe Kopfschmerzen. Ich habe ein Rezept."],
+    ["HALLO ARZT REZEPT BITTE HELFEN", "Hallo, ich habe ein Rezept vom Arzt. Bitte helfen Sie mir."],
+    ["KOPF SCHMERZ GEHEN REZEPT LESEN KANN-NICHT", "Ich habe Kopfschmerzen. Ich war unterwegs und habe ein Rezept. Ich kann es nicht lesen."],
+    ["VERSTEHEN DANKE HILFE", "Ah, ich verstehe. Danke für Ihre Hilfe."],
+    ["DANKE", "Danke."],
+  ],
+};
+
+export const TOPICS = ["weather", "pharmacy"];
+
 const userMessage = (glosses, hints) => `Glosses: ${glosses}${hints ? `\nWord hints: ${hints}` : ""}`;
 
-/** Chat messages for one line: system, few-shot pairs, then the real line. */
-export function buildMessages(glosses, hints, lang) {
+/** Chat messages for one line: system, few-shot pairs, then the real line. `topic`: "weather" (default) or "pharmacy". */
+export function buildMessages(glosses, hints, lang, topic = "weather") {
+  if (topic === "pharmacy") {
+    const shots = PHARMACY_EXAMPLES[lang].flatMap(([g, s]) => [{ role: "user", content: userMessage(g, "") }, { role: "assistant", content: s }]);
+    return [{ role: "system", content: PHARMACY_SYSTEM[lang] }, ...shots, { role: "user", content: userMessage(glosses, hints) }];
+  }
   const shots = EXAMPLES[lang].flatMap(([g, h, s]) => [
     { role: "user", content: userMessage(g, h) },
     { role: "assistant", content: s },

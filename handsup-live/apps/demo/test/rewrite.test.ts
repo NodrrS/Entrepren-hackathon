@@ -129,3 +129,32 @@ describe("POST /api/rewrite", () => {
     expect(((await (await fetch(`${base}/api/health`)).json()) as { llm: boolean }).llm).toBe(true);
   });
 });
+
+describe("POST /api/rewrite topics", () => {
+  it("uses the pharmacy prompt for topic pharmacy and refuses unknown topics", async () => {
+    const seen: string[] = [];
+    const stub = createServer(async (req, res) => {
+      const chunks: Buffer[] = [];
+      for await (const c of req) chunks.push(c as Buffer);
+      if (req.url?.endsWith("/models")) { res.writeHead(200); return res.end("{}"); }
+      seen.push(JSON.parse(Buffer.concat(chunks).toString()).messages[0].content);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ choices: [{ message: { content: "Hello, I have a prescription." } }] }));
+    });
+    await new Promise<void>((r) => stub.listen(0, "127.0.0.1", r));
+    const demo = await startDemo({ LLM_BASE_URL: `http://127.0.0.1:${(stub.address() as AddressInfo).port}/v1`, LLM_API_KEY: "k" });
+    try {
+      await new Promise((r) => setTimeout(r, 100));
+      seen.length = 0;
+      const ok = await post(demo.base, { glosses: "HALLO REZEPT", lang: "en", topic: "pharmacy" });
+      expect(ok.status).toBe(200);
+      expect(seen.at(-1)).toContain("pharmacy counter");
+      expect((await post(demo.base, { glosses: "MORGEN", lang: "en" })).status).toBe(200);
+      expect(seen.at(-1)).toContain("weather");
+      expect((await post(demo.base, { glosses: "A", lang: "en", topic: "cooking" })).status).toBe(400);
+    } finally {
+      demo.proc.kill();
+      stub.close();
+    }
+  });
+});

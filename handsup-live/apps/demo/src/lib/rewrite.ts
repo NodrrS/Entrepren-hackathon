@@ -10,11 +10,14 @@ export interface Rewritten {
  * (POST /api/rewrite), which asks the LLM gateway. Only the recognised words and the language are sent.
  * Throws if the service is unavailable; callers fall back to the raw words.
  */
-export async function rewrite(glosses: string, hints: string, lang: Lang, signal?: AbortSignal): Promise<Rewritten> {
+/** "weather": the forecast model's glosses (default); "pharmacy": the guided DGS scenario at the counter. */
+export type Topic = "weather" | "pharmacy";
+
+export async function rewrite(glosses: string, hints: string, lang: Lang, signal?: AbortSignal, topic: Topic = "weather"): Promise<Rewritten> {
   const res = await fetch("/api/rewrite", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ glosses, ...(hints ? { hints } : {}), lang }),
+    body: JSON.stringify({ glosses, ...(hints ? { hints } : {}), lang, ...(topic !== "weather" ? { topic } : {}) }),
     ...(signal ? { signal } : {}),
   });
   if (!res.ok) throw new Error(`rewrite failed (${res.status})`);

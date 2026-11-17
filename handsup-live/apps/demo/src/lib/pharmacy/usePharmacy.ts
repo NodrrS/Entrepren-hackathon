@@ -20,7 +20,7 @@ export interface PharmacyState {
   debug: TrackerDebug | null;
 }
 
-export function usePharmacy(real: RecognizerApi, onTurnDone: (turn: GuidedTurn) => void) {
+export function usePharmacy(real: RecognizerApi, onTurnDone: (turn: GuidedTurn, marks: Mark[]) => void) {
   const [on, setOn] = useState(false);
   const [assist, setAssistState] = useState(true);
   const [state, setState] = useState<PharmacyState>({ turn: null, index: 0, marks: [], debug: null });
@@ -50,7 +50,7 @@ export function usePharmacy(real: RecognizerApi, onTurnDone: (turn: GuidedTurn) 
     if (t.done) {
       tracker.current = null;
       setState({ turn, index: turn.steps.length, marks: marks.current, debug: null });
-      doneCb.current(turn);
+      doneCb.current(turn, marks.current);
     } else setState((s) => ({ ...s, index: t.index, marks: marks.current }));
   }, []);
 

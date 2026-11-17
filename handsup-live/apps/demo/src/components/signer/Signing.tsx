@@ -17,6 +17,8 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
   const newest = s.lines.at(-1);
   const sentence = newest ? s.sentences[newest.id] : undefined;
   const glosses = newest ? newest.de.split(" ").filter(Boolean) : [];
+  // The sentence whose latency the badge shows: the pharmacy turn's, or the newest line's.
+  const shown = s.source === "pharmacy" ? s.pharmacySentence : sentence;
 
   return (
     <div className={cn("mx-auto h-dvh w-full max-w-[430px] flex-col overflow-hidden", active ? "flex" : "hidden")}>
@@ -24,8 +26,8 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
       <section className="flex h-[46%] shrink-0 rotate-180 flex-col gap-2 bg-card px-5 pt-4 pb-[max(1rem,env(safe-area-inset-top))]" aria-label="For staff">
         <div className="flex items-center justify-between gap-3">
           <span className="text-[13px] font-semibold text-muted-foreground">For staff · Für das Personal</span>
-          {typeof sentence === "object" && (
-            <span className="rounded-xl bg-ok-soft px-2.5 py-1 text-[13px] font-semibold text-ok-ink tabular-nums">{(sentence.ms / 1000).toFixed(2)} s</span>
+          {typeof shown === "object" && (
+            <span className="rounded-xl bg-ok-soft px-2.5 py-1 text-[13px] font-semibold text-ok-ink tabular-nums">{(shown.ms / 1000).toFixed(2)} s</span>
           )}
         </div>
         {glosses.length > 0 && <p className="m-0 truncate text-[13px] tracking-[0.08em] text-muted-foreground [font-variant:small-caps]">{glosses.join(" · ").toLowerCase()}</p>}
@@ -34,7 +36,9 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
             // Pharmacy (guided DGS): the scenario words so far, then the whole sentence when the turn is done.
             <p className="m-0 animate-word-in font-display text-[26px] leading-[1.1] font-bold break-words">
               {s.ph.state.index >= s.ph.state.turn.steps.length
-                ? (s.lang === "de" ? s.ph.state.turn.de : s.ph.state.turn.en)
+                ? typeof s.pharmacySentence === "object" ? s.pharmacySentence.text
+                  : s.pharmacySentence === "pending" ? "…"
+                  : (s.lang === "de" ? s.ph.state.turn.de : s.ph.state.turn.en)
                 : s.ph.state.turn.steps.slice(0, s.ph.state.index).map((st) => st.de).join(" ") || "…"}
             </p>
           ) : typeof sentence === "object" ? (

@@ -154,7 +154,7 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
               onDrop: (e: React.DragEvent) => { e.preventDefault(); setDrag(false); if (!s.useMock) onFile(e.dataTransfer.files[0]); },
             }}
             figure={s.useMock ? <MockFigure active={s.running} className="absolute inset-0 h-full w-full" /> : undefined}
-            caption={ph.on ? <GuidedCaption ph={ph} /> : <Captions line={newest} sentence={newest ? s.sentences[newest.id] : undefined} lang={s.lang} />}
+            caption={ph.on ? <GuidedCaption ph={ph} sentence={s.pharmacySentence} lang={s.lang} /> : <Captions line={newest} sentence={newest ? s.sentences[newest.id] : undefined} lang={s.lang} />}
           />
 
           {ph.on && <GuidedPanel ph={ph} disabled={!s.ready} />}

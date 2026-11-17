@@ -3,7 +3,7 @@
 //
 //   GET  /api/health   -> { ok: boolean, llm: boolean, links: boolean }   whether Voice Control / the LLM gateway answer / video links work
 //   POST /api/tts      -> audio/wav     body { text: string (<= 400 chars), lang: "en" | "de", voice?: "default" | "c3po" | "snape" }
-//   POST /api/rewrite  -> { sentence, ms }   body { glosses: string, hints?: string, lang: "en" | "de" }
+//   POST /api/rewrite  -> { sentence, ms }   body { glosses: string, hints?: string, lang: "en" | "de", topic?: "weather" | "pharmacy" }
 //                         turns raw sign glosses into one natural sentence with an LLM (metacon, via LiteLLM)
 //   POST /api/simplify -> { sentence, tiles }   body { text: string, lang: "en" | "de" }
 //                         the staff answer as very short plain sentences + up to 3 picture tiles (LLM, strict JSON)
@@ -19,7 +19,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildMessages, cleanSentence } from "./rewrite-prompt.mjs";
+import { TOPICS, buildMessages, cleanSentence } from "./rewrite-prompt.mjs";
 import { buildSimplifyMessages, parseSimplify } from "./simplify-prompt.mjs";
 import { MESSAGES, createLimiter, downloadVideo, parseVideoId, ytdlpAvailable } from "./video-link.mjs";
 import { MAX_TEXT_CHARS, VOICE_STYLES, VOICES } from "./voices.mjs";
@@ -221,8 +221,8 @@ async function llmChat(messages, maxTokens) {
   return data?.choices?.[0]?.message?.content;
 }
 
-async function rewriteSentence(glosses, hints, lang) {
-  return cleanSentence(await llmChat(buildMessages(glosses, hints, lang), 120));
+async function rewriteSentence(glosses, hints, lang, topic = "weather") {
+  return cleanSentence(await llmChat(buildMessages(glosses, hints, lang, topic), 160));
 }
 
 async function handleRewrite(req, res) {
@@ -242,9 +242,12 @@ async function handleRewrite(req, res) {
   if (glosses.length > MAX_TEXT_CHARS || hints.length > MAX_TEXT_CHARS) return json(res, 400, { error: `text is longer than ${MAX_TEXT_CHARS} characters` });
   if (lang !== "en" && lang !== "de") return json(res, 400, { error: 'lang must be "en" or "de"' });
 
+  const topic = body?.topic ?? "weather";
+  if (!TOPICS.includes(topic)) return json(res, 400, { error: 'topic must be "weather" or "pharmacy"' });
+
   const t0 = Date.now();
   try {
-    const sentence = (await rewriteSentence(glosses, hints, lang)).slice(0, MAX_TEXT_CHARS);
+    const sentence = (await rewriteSentence(glosses, hints, lang, topic)).slice(0, MAX_TEXT_CHARS);
     if (!sentence) return json(res, 502, { error: "The sentence service gave no answer." });
     json(res, 200, { sentence, ms: Date.now() - t0 });
   } catch (e) {

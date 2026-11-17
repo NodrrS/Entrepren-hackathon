@@ -2,6 +2,8 @@ import { SkipForward, Square } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { TURNS, type usePharmacy } from "@/lib/pharmacy/usePharmacy";
+import type { Lang } from "@/lib/recognizer";
+import type { SentenceState } from "../Captions";
 import { Pill, Switch } from "../Controls";
 
 type Ph = ReturnType<typeof usePharmacy>;
@@ -56,7 +58,8 @@ export function GuidedPanel({ ph, disabled, className }: { ph: Ph; disabled: boo
 }
 
 /** The scenario words so far, for the stage's caption area. */
-export function GuidedCaption({ ph }: { ph: Ph }) {
+/** The caption while a guided turn runs; when it is done, the LLM's sentence (or the written one as a fallback). */
+export function GuidedCaption({ ph, sentence, lang }: { ph: Ph; sentence?: SentenceState | undefined; lang: Lang }) {
   const { turn, index, marks } = ph.state;
   if (!turn) return <div className="min-h-16 rounded-[14px] bg-white/10 px-4 py-3 text-[15px] text-white/60">Teil 1 starten, dann die Gebärden der Kundin zeigen.</div>;
   const said = turn.steps.slice(0, index);
@@ -66,7 +69,16 @@ export function GuidedCaption({ ph }: { ph: Ph }) {
       <p className="m-0 flex flex-wrap gap-x-2 font-display text-xl font-bold">
         {said.length ? said.map((st, i) => <span key={`${st.gloss}-${i}`} className={cn(marks[i] === "skip" && "text-muted-foreground")}>{st.de}</span>) : <span className="text-muted-foreground">…</span>}
       </p>
-      {finished && <p className="m-0 text-[15px]">{turn.de}<br /><span className="text-muted-foreground">{turn.en}</span></p>}
+      {finished && (typeof sentence === "object" ? (
+        <div className="flex items-start justify-between gap-3">
+          <p className="m-0 animate-word-in font-display text-[2rem] leading-[1.1] font-bold break-words">{sentence.text}</p>
+          <span className="shrink-0 rounded-xl bg-ok-soft px-2.5 py-1 text-[13px] font-semibold text-ok-ink tabular-nums" title="Time to write the sentence">{(sentence.ms / 1000).toFixed(2)} s</span>
+        </div>
+      ) : sentence === "pending" ? (
+        <p className="m-0 font-display text-[2rem] font-bold text-muted-foreground" role="status"><span className="sr-only">Writing the sentence</span><span aria-hidden="true">…</span></p>
+      ) : (
+        <p className="m-0 text-[15px]">{lang === "de" ? turn.de : turn.en}</p>
+      ))}
     </div>
   );
 }

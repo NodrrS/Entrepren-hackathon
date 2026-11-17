@@ -6,8 +6,9 @@ import { builtinReply, makeReply, type Reply } from "./replies";
 import { rewrite } from "./rewrite";
 import { timed } from "./metrics";
 import { checkHealth, type VoiceStyle } from "./speech";
-import { usePharmacy } from "./pharmacy/usePharmacy";
+import { usePharmacy, type Mark } from "./pharmacy/usePharmacy";
 import { TURN_1, TURN_3, type GuidedTurn } from "./pharmacy/guided";
+import { recognisedGlosses } from "./pharmacy/interpret";
 import { stepsFor, type Step } from "./pharmacy/dgs";
 import { textToSteps } from "./pharmacy/text";
 import { useRecognizer, type CaptionLine, type Lang } from "./recognizer";
@@ -60,12 +61,14 @@ export function useSession() {
   const [pictures, setPictures] = useState(true); // reply style: pictures + simple text, or big text only
   const { enqueue, playing } = useSpeechQueue(muted);
   // Pharmacy: guided DGS scenario on the camera; finished turns become signer sentences; staff answers play as DGS.
-  const sayRef = useRef<(text: string, l: Lang) => void>(() => {});
+  // A finished turn's recognised signs (skipped steps left out) go through the LLM like any other line: the
+  // sentence is shown and spoken in the chosen voice. If the LLM fails, or nothing was recognised, the turn's
+  // written sentence is used instead.
+  const interpretRef = useRef<(turn: GuidedTurn, marks: Mark[]) => void>(() => {});
   const nextTurn = useRef<GuidedTurn>(TURN_1);
-  const ph = usePharmacy(real, (turn) => {
+  const ph = usePharmacy(real, (turn, marks) => {
     nextTurn.current = turn === TURN_1 ? TURN_3 : TURN_1;
-    const l = settings.current.lang;
-    sayRef.current(l === "de" ? turn.de : turn.en, l);
+    interpretRef.current(turn, marks);
   });
   const [dgs, setDgs] = useState<{ steps: Step[]; key: number }>({ steps: [], key: 0 });
   useEffect(() => { ph.setOn(source === "pharmacy"); if (source !== "pharmacy") ph.stopTurn(); }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -141,7 +144,7 @@ export function useSession() {
     setWeatherWaiting(true);
   }, [real.mode, weatherClip, real]);
 
-  const reset = useCallback(() => { setMessages([]); setSentences({}); setReply(null); setForecastDone(false); }, []);
+  const reset = useCallback(() => { setMessages([]); setSentences({}); setReply(null); setForecastDone(false); setPharmacySentence(undefined); }, []);
   const stopWeather = useCallback(() => { clearTimeout(weatherTimer.current); setWeatherClip(null); setWeatherWaiting(false); }, []);
   /** Plays the next forecast clip (the forecast waits after each one). */
   const nextClip = useCallback(() => {
@@ -184,18 +187,47 @@ export function useSession() {
     if (scripted && opts?.advance !== false) mock.next();
   }, [mock, source, ph.data]);
 
-  /** A finished signer sentence from another recogniser (pharmacy guided mode): shown and spoken. */
+  /** A finished signer sentence from another recogniser: shown and spoken. */
   const say = useCallback((text: string, l: Lang) => {
     setMessages((m) => [...m, { key: `say-${Date.now()}-${m.length}`, who: "signer", text }]);
     if (settings.current.speakOn) enqueue(text, l, settings.current.voice);
   }, [enqueue]);
-  sayRef.current = say;
+
+  // Pharmacy turns get negative ids so they never clash with the sign model's line ids in `sentences`.
+  const pharmacyId = useRef(0);
+  const [pharmacySentence, setPharmacySentence] = useState<SentenceState | undefined>(undefined);
+  interpretRef.current = (turn, marks) => {
+    const id = -++pharmacyId.current;
+    chain.current = chain.current.then(async () => {
+      const { lang: l, speakOn: speak, voice: v } = settings.current;
+      const written = l === "de" ? turn.de : turn.en;
+      const glosses = recognisedGlosses(turn, marks);
+      let text = written;
+      setMessages((m) => [...m, { key: `turn-${-id}`, who: "signer", text: written, lineId: id }]);
+      if (glosses) {
+        setSentences((s) => ({ ...s, [id]: "pending" }));
+        setPharmacySentence("pending");
+        try {
+          const out = await timed("sentence", rewrite(glosses, "", l, undefined, "pharmacy"));
+          const done = { text: out.sentence, ms: out.ms, lang: l };
+          setSentences((s) => ({ ...s, [id]: done }));
+          setPharmacySentence(done);
+          text = out.sentence;
+          setLlmOk(true);
+        } catch {
+          setSentences((s) => ({ ...s, [id]: "failed" }));
+          setPharmacySentence("failed");
+        }
+      }
+      if (speak) enqueue(text, l, v);
+    });
+  };
 
   /** Pharmacy: the next guided turn (turn 3 after turn 1), keeping the conversation. */
-  const nextPharmacyTurn = useCallback(() => ph.startTurn(nextTurn.current), [ph]);
+  const nextPharmacyTurn = useCallback(() => { setPharmacySentence(undefined); return ph.startTurn(nextTurn.current); }, [ph]);
 
   return {
-    say, ph, dgs, nextPharmacyTurn,
+    say, ph, dgs, nextPharmacyTurn, pharmacySentence,
     real, mock, source, setSource, useMock, weatherClip, forecastDone, weatherWaiting, nextClip,
     voice, setVoice,
     lang, setLang, speakOn, setSpeakOn, muted, setMuted, playing,
