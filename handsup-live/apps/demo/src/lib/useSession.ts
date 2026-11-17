@@ -168,7 +168,14 @@ export function useSession() {
     if (scripted && opts?.advance !== false) mock.next();
   }, [mock]);
 
+  /** A finished signer sentence from another recogniser (pharmacy guided mode): shown and spoken. */
+  const say = useCallback((text: string, l: Lang) => {
+    setMessages((m) => [...m, { key: `say-${Date.now()}-${m.length}`, who: "signer", text }]);
+    if (settings.current.speakOn) enqueue(text, l);
+  }, [enqueue]);
+
   return {
+    say,
     real, mock, source, setSource, useMock, weatherClip, forecastDone, weatherPaused, weatherWaiting, pauseWeather, resumeWeather,
     voice, setVoice,
     lang, setLang, speakOn, setSpeakOn, muted, setMuted, playing,
