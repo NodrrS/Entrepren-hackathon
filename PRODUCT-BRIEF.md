@@ -69,7 +69,7 @@ The wow moment, visible in 30 seconds: signs go in and words appear in under hal
 
 **Out of scope today:** accounts, payments, more sign languages, the DGS avatar for replies, a native app, the "Deaf-friendly counter" map.
 
-**Mockup:** [Hands Up two modes](https://claude.ai/artifact/QrJVepSAJUozuFeSWxMyhA) (3 phone screens, 2 tablet screens). It is private until Nodir shares it.
+**Mockups:** [design/mockups/](design/mockups/README.md) has screenshots, browser-viewable pages and the source for all 5 screens (3 phone, 2 tablet). The editable canvas is [Hands Up two modes](https://claude.ai/artifact/QrJVepSAJUozuFeSWxMyhA), private until Nodir shares it.
 
 ## How the model gets in
 
