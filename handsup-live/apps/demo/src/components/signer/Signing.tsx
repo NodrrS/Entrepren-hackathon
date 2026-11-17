@@ -46,7 +46,7 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
           ) : newest?.final && newest ? (
             <p className="m-0 font-display text-3xl leading-[1.1] font-bold break-words text-muted-foreground">{rawWords(newest, s.lang)}</p>
           ) : (
-            <p className="m-0 text-lg text-muted-foreground">{newest ? "Listening…" : "Waiting for signs…"}</p>
+            <p className="m-0 text-lg text-muted-foreground">{newest ? "Watching your signs…" : "Waiting for signs…"}</p>
           )}
         </div>
         {problem && <p className="m-0 text-sm font-medium text-destructive" role="alert">{problem}</p>}

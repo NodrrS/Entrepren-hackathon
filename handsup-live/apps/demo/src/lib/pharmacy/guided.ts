@@ -244,6 +244,19 @@ export class GuidedTracker {
         this.ref = this.ref ? { nx: 0.7 * this.ref.nx + 0.3 * r.nx, ny: 0.7 * this.ref.ny + 0.3 * r.ny, sy: 0.7 * this.ref.sy + 0.3 * r.sy, w: 0.8 * this.ref.w + 0.2 * r.w } : r;
       }
     }
+    // No pose yet (a small or partly visible signer): a stand-in reference from the hands, so motion and
+    // Assistenz still work. Shoulder width ~ 2.5 palm lengths; the "nose" sits above the hands.
+    if (!this.ref) {
+      for (const [h, s] of [[1, 33], [2, 54]] as const) {
+        if (!f.present[h]) continue;
+        const palm = Math.hypot(p[(s + 9) * 3]! - p[s * 3]!, p[(s + 9) * 3 + 1]! - p[s * 3 + 1]!);
+        if (palm > 0.002) {
+          const w = 2.5 * palm;
+          this.ref = { nx: p[s * 3]!, ny: p[s * 3 + 1]! - 0.8 * w, sy: p[s * 3 + 1]! - 0.2 * w, w };
+          break;
+        }
+      }
+    }
     const r = this.ref;
     const feat: FrameFeat = { hands: [], shY: r ? (r.sy - r.ny) / r.w : 0.6 };
     if (r) {
@@ -301,9 +314,11 @@ export class GuidedTracker {
     const nearHead = (h: { tip: Pt }) => Math.hypot(h.tip.x, h.tip.y + 0.1) < 1.0;
     const aboveShoulders = (h: { tip: Pt }, b: FrameFeat) => h.tip.y < b.shY;
     switch (kind) {
-      case "hallo":
-        // a hand up at head height (beside or in front of the head) with some motion
-        return this.count((h, b) => aboveShoulders(h, b) && Math.abs(h.tip.x) < 1.6) >= 5 && motion > 0.015;
+      case "hallo": {
+        // any hand at or above shoulder height near the head, moving left-right (scale- and mirror-free)
+        const up = this.buf.flatMap((b) => b.hands.filter((h) => h.tip.y < b.shY + 0.15 && Math.abs(h.tip.x) < 2.0).map((h) => h.tip.x));
+        return up.length >= 4 && Math.max(...up) - Math.min(...up) > 0.12 && motion > 0.008;
+      }
       case "kopf":
         // any hand above the shoulder line near the head
         return this.count((h, b) => aboveShoulders(h, b) && nearHead(h)) >= 4;
