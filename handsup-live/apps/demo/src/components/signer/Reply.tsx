@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DgsReply } from "../pharmacy/DgsReply";
 import { House, Send, User } from "lucide-react";
 import type { Session } from "@/lib/useSession";
 import { HoldToSpeak } from "../HoldToSpeak";
@@ -66,9 +67,13 @@ export function Reply({ s, onSign, onReplace, onHome }: { s: Session; onSign: ()
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto" aria-live="polite">
           <PictureReply reply={reply} pictures={pictures} scale={SCALES[step]!} />
         </div>
-        <button type="button" disabled className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-dashed border-border text-[15px] font-semibold text-body-2 opacity-80">
-          <User className="h-4 w-4" aria-hidden="true" /> Show in DGS (coming later)
-        </button>
+        {s.source === "pharmacy" && s.ph.data && s.dgs.steps.length > 0 ? (
+          <DgsReply data={s.ph.data} steps={s.dgs.steps} playKey={s.dgs.key} />
+        ) : (
+          <button type="button" disabled className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-dashed border-border text-[15px] font-semibold text-body-2 opacity-80">
+            <User className="h-4 w-4" aria-hidden="true" /> Show in DGS (coming later)
+          </button>
+        )}
         <div className="flex gap-3">
           <button type="button" onClick={onSign} className="h-[60px] flex-1 rounded-full bg-primary text-[19px] font-bold text-primary-foreground">Sign answer</button>
           <button type="button" onClick={() => setStep((step + 1) % SCALES.length)} className="h-[60px] rounded-full border border-border bg-card px-6 text-base font-semibold">Bigger</button>

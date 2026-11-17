@@ -22,7 +22,7 @@ function Illustration() {
 }
 
 /** Screen 1 of the signer flow: how to stand the phone, reply style, language, Start. */
-const START: Record<Session["source"], string> = { camera: "Start camera", weather: "Play the forecast", pharmacy: "Start example" };
+const START: Record<Session["source"], string> = { camera: "Start camera", weather: "Play the forecast", pharmacy: "Start camera (Apotheke)" };
 
 export function Setup({ s, onStart, onSettings, starting }: { s: Session; onStart: () => void; onSettings: () => void; starting: boolean }) {
   const loading = !s.ready;

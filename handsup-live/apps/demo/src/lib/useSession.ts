@@ -6,6 +6,10 @@ import { builtinReply, makeReply, type Reply } from "./replies";
 import { rewrite } from "./rewrite";
 import { timed } from "./metrics";
 import { checkHealth, type VoiceStyle } from "./speech";
+import { usePharmacy } from "./pharmacy/usePharmacy";
+import { TURN_1, TURN_3, type GuidedTurn } from "./pharmacy/guided";
+import { stepsFor, type Step } from "./pharmacy/dgs";
+import { textToSteps } from "./pharmacy/text";
 import { useRecognizer, type CaptionLine, type Lang } from "./recognizer";
 
 /** What is being translated: the live camera, the recorded weather forecast through the real model, or the scripted pharmacy dialogue. */
@@ -34,7 +38,8 @@ export function useSession() {
   const real = useRecognizer();
   const mock = useMockSigner();
   const [source, setSourceState] = useState<Source>("camera"); // live camera by default
-  const useMock = source === "pharmacy";
+  // "Pharmacy" runs the live camera with the guided DGS recogniser (usePharmacy, fc10 off), not the scripted mock.
+  const useMock = false;
   // Weather forecast: which clip plays (0-based), or null when the forecast is not playing.
   const [weatherClip, setWeatherClip] = useState<number | null>(null);
   const [forecastDone, setForecastDone] = useState(false);
@@ -54,6 +59,16 @@ export function useSession() {
   const [reply, setReply] = useState<Reply | null>(null);
   const [pictures, setPictures] = useState(true); // reply style: pictures + simple text, or big text only
   const { enqueue, playing } = useSpeechQueue(muted);
+  // Pharmacy: guided DGS scenario on the camera; finished turns become signer sentences; staff answers play as DGS.
+  const sayRef = useRef<(text: string, l: Lang) => void>(() => {});
+  const nextTurn = useRef<GuidedTurn>(TURN_1);
+  const ph = usePharmacy(real, (turn) => {
+    nextTurn.current = turn === TURN_1 ? TURN_3 : TURN_1;
+    const l = settings.current.lang;
+    sayRef.current(l === "de" ? turn.de : turn.en, l);
+  });
+  const [dgs, setDgs] = useState<{ steps: Step[]; key: number }>({ steps: [], key: 0 });
+  useEffect(() => { ph.setOn(source === "pharmacy"); if (source !== "pharmacy") ph.stopTurn(); }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const settings = useRef({ lang, speakOn, llmOk, useMock, voice });
   settings.current = { lang, speakOn, llmOk, useMock, voice };
@@ -143,7 +158,7 @@ export function useSession() {
   const start = useCallback(async () => {
     reset();
     stopWeather();
-    if (source === "pharmacy") { real.stop(); mock.start(); return; }
+    if (source === "pharmacy") { mock.stop(); setDgs({ steps: [], key: 0 }); await ph.startTurn(nextTurn.current); return; }
     mock.stop();
     if (source === "weather") { setWeatherClip(0); await real.startDemo(0); return; }
     await real.startCamera();
@@ -151,8 +166,15 @@ export function useSession() {
 
   /** Staff answer (typed, spoken and transcribed, or a quick reply): becomes the reply the signer sees. */
   const sendReply = useCallback((text: string, opts?: { advance?: boolean }) => {
-    const said = text.trim();
+    let said = text.trim();
     if (!said) return;
+    if (source === "pharmacy" && ph.data) {
+      const answer = ph.data.sentences[1];
+      const recipe = said === "Rezept-Antwort" && answer;
+      const steps = recipe ? stepsFor(answer.glosses, ph.data) : textToSteps(said, ph.data);
+      if (recipe) said = answer.de;
+      setDgs((d) => ({ steps, key: d.key + 1 }));
+    }
     const { lang: l, useMock: scripted } = settings.current;
     setMessages((m) => [...m, { key: `reply-${Date.now()}-${m.length}`, who: "staff", text: said }]);
     const known = builtinReply(said, l);
@@ -160,16 +182,20 @@ export function useSession() {
     if (!known) void makeReply(said, l).then((r) => setReply((cur) => (cur && cur.said === said ? r : cur)));
     // In Mock mode the dialogue goes on after a reply (the phone flow does that itself, when the signer is back).
     if (scripted && opts?.advance !== false) mock.next();
-  }, [mock]);
+  }, [mock, source, ph.data]);
 
   /** A finished signer sentence from another recogniser (pharmacy guided mode): shown and spoken. */
   const say = useCallback((text: string, l: Lang) => {
     setMessages((m) => [...m, { key: `say-${Date.now()}-${m.length}`, who: "signer", text }]);
     if (settings.current.speakOn) enqueue(text, l, settings.current.voice);
   }, [enqueue]);
+  sayRef.current = say;
+
+  /** Pharmacy: the next guided turn (turn 3 after turn 1), keeping the conversation. */
+  const nextPharmacyTurn = useCallback(() => ph.startTurn(nextTurn.current), [ph]);
 
   return {
-    say,
+    say, ph, dgs, nextPharmacyTurn,
     real, mock, source, setSource, useMock, weatherClip, forecastDone, weatherWaiting, nextClip,
     voice, setVoice,
     lang, setLang, speakOn, setSpeakOn, muted, setMuted, playing,
