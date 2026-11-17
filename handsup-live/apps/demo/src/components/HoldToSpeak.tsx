@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { Lang } from "@/lib/recognizer";
 import { startRecording, type Recording } from "@/lib/recordWav";
 import { transcribe } from "@/lib/transcribe";
+import { timed } from "@/lib/metrics";
 
 const MAX_SECONDS = 20;
 
@@ -43,7 +44,7 @@ export function HoldToSpeak({ lang, onText, onProblem, variant = "wide", classNa
     if (seconds < 0.5) { setState("idle"); onProblem("Hold the button while you speak."); return; }
     setState("working");
     try {
-      const text = await transcribe(wav, lang);
+      const text = await timed("transcribe", transcribe(wav, lang));
       if (text) onText(text);
       else onProblem("Nothing was heard. Try again, or type your answer.");
     } catch (e) {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { speak, type VoiceStyle } from "@/lib/speech";
+import { timed } from "@/lib/metrics";
 import type { Lang } from "@/lib/recognizer";
 
 /** Speaks texts one at a time, in order. */
@@ -19,7 +20,7 @@ export function useSpeechQueue(muted: boolean) {
       const item = queue.current.shift()!;
       setPlaying(true);
       try {
-        const blob = await speak(item.text, item.lang, item.voice);
+        const blob = await timed("speech", speak(item.text, item.lang, item.voice));
         if (blob) {
           const url = URL.createObjectURL(blob);
           const a = (audio.current ??= new Audio());

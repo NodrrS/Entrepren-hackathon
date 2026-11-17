@@ -1,4 +1,5 @@
 import type { Lang } from "./recognizer";
+import { timed } from "./metrics";
 
 export type IconName = "pill" | "clock" | "money" | "calendar" | "water" | "food" | "document" | "wait" | "yes" | "no" | "question" | "warning";
 export interface Tile { icon: IconName; value: string; label: string }
@@ -60,7 +61,7 @@ export async function makeReply(text: string, lang: Lang): Promise<Reply> {
   const known = builtinReply(said, lang);
   if (known) return known;
   try {
-    const out = await simplify(said, lang);
+    const out = await timed("picture", simplify(said, lang));
     return { said, sentence: out.sentence, tiles: out.tiles, loading: false };
   } catch {
     return { said, sentence: said, tiles: [], loading: false };

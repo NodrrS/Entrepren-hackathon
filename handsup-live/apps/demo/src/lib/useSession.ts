@@ -4,6 +4,7 @@ import { useSpeechQueue } from "@/components/useSpeechQueue";
 import { MOCK_LATENCY_MS, mockSentence, useMockSigner } from "./mockSigner";
 import { builtinReply, makeReply, type Reply } from "./replies";
 import { rewrite } from "./rewrite";
+import { timed } from "./metrics";
 import { checkHealth, type VoiceStyle } from "./speech";
 import { useRecognizer, type CaptionLine, type Lang } from "./recognizer";
 
@@ -37,11 +38,8 @@ export function useSession() {
   // Weather forecast: which clip plays (0-based), or null when the forecast is not playing.
   const [weatherClip, setWeatherClip] = useState<number | null>(null);
   const [forecastDone, setForecastDone] = useState(false);
-  // Pause: the clip that is playing finishes, then the forecast waits until "Next clip".
-  const [weatherPaused, setWeatherPaused] = useState(false);
+  // The forecast pauses after every clip and waits for "Next clip", so the presenter sets the pace.
   const [weatherWaiting, setWeatherWaiting] = useState(false);
-  const pausedRef = useRef(false);
-  pausedRef.current = weatherPaused;
   const weatherTimer = useRef<number | undefined>(undefined);
   const prevMode = useRef(real.mode);
   const [lang, setLang] = useState<Lang>("en");
@@ -89,7 +87,7 @@ export function useSession() {
         setSentences((s) => ({ ...s, [line.id]: "pending" }));
         try {
           const inp = rewriteInput(line, l);
-          const out = await rewrite(inp.glosses, inp.hints, l);
+          const out = await timed("sentence", rewrite(inp.glosses, inp.hints, l));
           setSentences((s) => ({ ...s, [line.id]: { text: out.sentence, ms: out.ms, lang: l } }));
           text = out.sentence;
           setLlmOk(true);
@@ -124,18 +122,14 @@ export function useSession() {
     prevMode.current = real.mode;
     if (weatherClip === null || was !== "demo" || real.mode !== "idle") return;
     const next = weatherClip + 1;
-    if (next >= WEATHER_CLIPS) { setWeatherClip(null); setWeatherPaused(false); setForecastDone(true); return; }
-    if (pausedRef.current) { setWeatherWaiting(true); return; }
-    setWeatherClip(next);
-    weatherTimer.current = window.setTimeout(() => void real.startDemo(next), 900);
+    if (next >= WEATHER_CLIPS) { setWeatherClip(null); setForecastDone(true); return; }
+    setWeatherWaiting(true);
   }, [real.mode, weatherClip, real]);
 
   const reset = useCallback(() => { setMessages([]); setSentences({}); setReply(null); setForecastDone(false); }, []);
-  const stopWeather = useCallback(() => { clearTimeout(weatherTimer.current); setWeatherClip(null); setWeatherPaused(false); setWeatherWaiting(false); }, []);
-  const pauseWeather = useCallback(() => setWeatherPaused(true), []);
-  /** Undoes a pause; if a clip already ended while paused, the next one starts now. */
-  const resumeWeather = useCallback(() => {
-    setWeatherPaused(false);
+  const stopWeather = useCallback(() => { clearTimeout(weatherTimer.current); setWeatherClip(null); setWeatherWaiting(false); }, []);
+  /** Plays the next forecast clip (the forecast waits after each one). */
+  const nextClip = useCallback(() => {
     if (!weatherWaiting || weatherClip === null) return;
     setWeatherWaiting(false);
     const next = weatherClip + 1;
@@ -169,7 +163,7 @@ export function useSession() {
   }, [mock]);
 
   return {
-    real, mock, source, setSource, useMock, weatherClip, forecastDone, weatherPaused, weatherWaiting, pauseWeather, resumeWeather,
+    real, mock, source, setSource, useMock, weatherClip, forecastDone, weatherWaiting, nextClip,
     voice, setVoice,
     lang, setLang, speakOn, setSpeakOn, muted, setMuted, playing,
     voiceOk, llmOk, linksOk,

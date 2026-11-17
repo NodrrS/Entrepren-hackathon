@@ -1,9 +1,11 @@
 import { HowItWorks } from "../HowItWorks";
 import { LangToggle, SOURCE_NOTES, SourceToggle, Switch, VoiceToggle } from "../Controls";
 import type { Session } from "@/lib/useSession";
+import { setDebug, useDebug } from "@/lib/metrics";
 
 /** Settings on the signer's phone: what to translate, speech, skeleton, language, how it works, and the counter view. */
 export function SettingsSheet({ s, onClose, onCounter }: { s: Session; onClose: () => void; onCounter: () => void }) {
+  const debug = useDebug();
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label="Settings" onClick={(e) => e.stopPropagation()}
@@ -30,6 +32,7 @@ export function SettingsSheet({ s, onClose, onCounter }: { s: Session; onClose: 
         <div className="flex flex-wrap gap-x-4">
           <Switch checked={s.speakOn} onChange={s.setSpeakOn} label="Say sentences aloud" />
           {!s.useMock && <Switch checked={s.real.showSkeleton} onChange={s.real.setShowSkeleton} label="Show skeleton" />}
+          <Switch checked={debug} onChange={setDebug} label="Show latency" />
         </div>
 
         <details className="rounded-2xl bg-secondary p-4">

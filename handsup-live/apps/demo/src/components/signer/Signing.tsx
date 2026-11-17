@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { House } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QUICK_PHONE } from "@/lib/replies";
 import type { Session } from "@/lib/useSession";
@@ -62,13 +63,12 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
               : "Reading your signs"}
           </span>
           <div className="flex gap-2">
-            {s.source === "weather" && s.weatherClip !== null && (
-              <button type="button" onClick={s.weatherWaiting || s.weatherPaused ? s.resumeWeather : s.pauseWeather} aria-pressed={s.weatherPaused}
-                className="min-h-11 rounded-full bg-stage-chip px-4 text-[15px] font-semibold text-white">
-                {s.weatherWaiting ? "Next clip" : s.weatherPaused ? "Don't pause" : "Pause"}
-              </button>
+            {s.source === "weather" && s.weatherWaiting && (
+              <button type="button" onClick={s.nextClip} className="min-h-11 rounded-full bg-primary px-4 text-[15px] font-bold text-primary-foreground">Next clip</button>
             )}
-            <button type="button" onClick={onEnd} className="min-h-11 rounded-full bg-white px-5 text-[15px] font-semibold text-ink">End</button>
+            <button type="button" onClick={onEnd} className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white px-4 text-[15px] font-semibold text-ink">
+              <House className="h-4 w-4" aria-hidden="true" />Home
+            </button>
           </div>
         </div>
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl">

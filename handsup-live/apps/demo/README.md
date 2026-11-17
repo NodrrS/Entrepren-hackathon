@@ -32,7 +32,14 @@ and the real model run (weather vocabulary).
 **Voice:** Default (Ryan for English, Aiden for German) is the main voice and is selected on every load; a switch
 offers two character voices, C-3PO and Snape, to show the speech is real. The page sends only the style name
 (`"default" | "c3po" | "snape"`); the server maps it to a fixed voice id (`server/voices.mjs`), so no other voice can
-be reached. The weather forecast can **pause after the current clip** and go on with **Next clip**.
+be reached. The weather forecast **pauses after every clip** and goes on with **Next clip**.
+
+**Home:** every screen has a Home button (and the logo on the counter view) back to the start of its mode.
+
+**Latency** (debug): "Show latency" in the phone settings, "Latency" in the counter header, or `?debug` in the
+address. It shows the last and average time of each step (sign model step, signs → sentence, sentence → voice, staff
+speech → text, answer → pictures), measured in the browser and kept in memory only: no addresses, keys, model names or
+voice ids are shown, and nothing is sent anywhere.
 
 **Staff answer:** a quick reply (built-in picture reply), typed text, or **hold to speak**: the page records 16 kHz WAV
 and `POST /api/transcribe` has Voice Control write it down (same one-at-a-time queue as speech). Free text goes to
