@@ -60,6 +60,35 @@ const DEMO_H = 520; // PHOENIX frames are 210 x 260
 
 type CapturableVideo = HTMLVideoElement & { captureStream?: () => MediaStream };
 
+/** Where the signer is in an uploaded video. A crop is drawn to a canvas before the tracker so the signer is large. */
+export type Crop = "whole" | "left" | "right" | "bottom-left" | "bottom-right";
+// [x, y, width, height] as fractions of the frame.
+const CROPS: Record<Crop, [number, number, number, number]> = {
+  whole: [0, 0, 1, 1],
+  left: [0, 0, 0.5, 1],
+  right: [0.5, 0, 0.5, 1],
+  "bottom-left": [0, 0.4, 0.45, 0.6],
+  "bottom-right": [0.55, 0.4, 0.45, 0.6],
+};
+const CROP_HEIGHT = 480; // the cropped region is scaled to this height
+
+function cropStream(video: HTMLVideoElement, crop: Crop): { stream: MediaStream; stop: () => void } {
+  const [fx, fy, fw, fh] = CROPS[crop];
+  const sx = fx * video.videoWidth;
+  const sy = fy * video.videoHeight;
+  const sw = fw * video.videoWidth;
+  const sh = fh * video.videoHeight;
+  const canvas = document.createElement("canvas");
+  canvas.height = CROP_HEIGHT;
+  canvas.width = Math.max(2, Math.round((CROP_HEIGHT * sw) / sh));
+  const ctx = canvas.getContext("2d")!;
+  const draw = () => ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  draw();
+  const timer = window.setInterval(draw, 40); // not requestAnimationFrame: it stops in background tabs
+  const stream = canvas.captureStream(25);
+  return { stream, stop: () => { clearInterval(timer); stream.getTracks().forEach((t) => t.stop()); } };
+}
+
 export function canUploadClips(): boolean {
   return typeof (HTMLVideoElement.prototype as CapturableVideo).captureStream === "function";
 }
@@ -112,6 +141,7 @@ export class RecognizerEngine {
   private demoTimer: number | null = null;
   private demoRun = 0;
   private fileVideo: HTMLVideoElement | null = null;
+  private cropStop: (() => void) | null = null;
   private fileUrl: string | null = null;
   private disposed = false;
 
@@ -420,7 +450,7 @@ export class RecognizerEngine {
     }
   }
 
-  async startUpload(file: File): Promise<void> {
+  async startUpload(file: File, crop: Crop = "whole"): Promise<void> {
     if (!canUploadClips()) {
       this.setStatus("Uploading a clip needs Chrome, Edge or Firefox on a computer or Android phone. The demo clip works everywhere.", "warn");
       return;
@@ -450,7 +480,12 @@ export class RecognizerEngine {
     }
     this.fileVideo = fv;
     this.fileUrl = url;
-    this.mediaProvider = async () => fv.captureStream!();
+    this.mediaProvider = async () => {
+      if (crop === "whole") return fv.captureStream!();
+      const c = cropStream(fv, crop);
+      this.cropStop = c.stop;
+      return c.stream;
+    };
     this.resetForRun("upload");
     this.setMode("upload");
     this.setStatus(`Reading ${file.name}… (plays at normal speed)`, "info");
@@ -487,6 +522,8 @@ export class RecognizerEngine {
   }
 
   private cleanupFile(): void {
+    this.cropStop?.();
+    this.cropStop = null;
     if (this.fileVideo) {
       this.fileVideo.onended = null;
       this.fileVideo.pause();
@@ -498,7 +535,8 @@ export class RecognizerEngine {
     this.fileUrl = null;
   }
 
-  async startDemo(): Promise<void> {
+  /** Plays one recorded clip: the one at `index` (wraps around), or the next in turn when no index is given. */
+  async startDemo(index?: number): Promise<void> {
     try {
       await this.modelReady;
     } catch {
@@ -514,13 +552,13 @@ export class RecognizerEngine {
       this.setStatus(`The demo clip is not available on this server (${(err as Error).message}).`, "error");
       return;
     }
-    const clip = clips[this.demoIndex % clips.length]!;
-    this.demoIndex++;
+    const n = (index ?? this.demoIndex++) % clips.length;
+    const clip = clips[n]!;
     this.resetForRun("demo");
     this.setMode("demo");
     this.canvas.width = DEMO_W;
     this.canvas.height = DEMO_H;
-    this.setStatus("Demo: a recorded weather forecast (skeleton only, no video) runs through the same model.", "ok");
+    this.setStatus(`Example ${n + 1} of ${clips.length}: a recorded weather forecast (skeleton only, no video) runs through the same model.`, "ok");
     let i = 0;
     const t0 = performance.now();
     const runId = ++this.demoRun;

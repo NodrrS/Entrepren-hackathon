@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Play, Square, Upload, Volume2, VolumeX } from "lucide-react";
-import { useRecognizer, type CaptionLine, type Lang } from "@/lib/recognizer";
+import { Camera, Link2, Loader2, Play, Square, Upload, Volume2, VolumeX } from "lucide-react";
+import { useRecognizer, type CaptionLine, type Crop, type Lang } from "@/lib/recognizer";
 import { checkHealth } from "@/lib/speech";
 import { rewrite } from "@/lib/rewrite";
+import { fetchVideo } from "@/lib/videoLink";
 import { cn } from "@/lib/utils";
 import { Captions, rawWords, type SentenceState } from "./Captions";
 import { Chip, Equalizer, LangToggle, Pill, Switch } from "./Controls";
@@ -16,6 +17,17 @@ const QUICK: Record<Lang, string[]> = {
   en: ["Prescription?", "This costs €6.50", "1 tablet, up to 3× a day", "One moment please"],
   de: ["Rezept?", "Das kostet 6,50 €", "1 Tablette, bis zu 3× täglich", "Einen Moment bitte"],
 };
+
+// The three recorded clips in demo-clips.json, in file order (glosses: see the file's `reference` lists).
+const EXAMPLES = ["Tomorrow's date", "Forecast intro", "Night temperatures"];
+
+const CROP_LABELS: Array<[Crop, string]> = [
+  ["whole", "Whole frame"],
+  ["right", "Right half"],
+  ["left", "Left half"],
+  ["bottom-right", "Bottom-right corner"],
+  ["bottom-left", "Bottom-left corner"],
+];
 
 /** Raw words for a rewrite request: the glosses, plus the model's rough English hints for the English prompt. */
 function rewriteInput(line: CaptionLine, lang: Lang) {
@@ -38,6 +50,12 @@ export function Demo() {
   const [drag, setDrag] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState(false);
+  const [example, setExample] = useState<number | null>(null);
+  const [linksOk, setLinksOk] = useState(false);
+  const [link, setLink] = useState("");
+  const [fetching, setFetching] = useState(false);
+  const [crop, setCrop] = useState<Crop>("whole");
+  const linkAbort = useRef<AbortController | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { enqueue, playing } = useSpeechQueue(muted);
   const settings = useRef({ lang, speakOn, llmOk });
@@ -49,7 +67,7 @@ export function Demo() {
   const lastFail = useRef(0);
 
   useEffect(() => {
-    const poll = () => checkHealth().then((h) => { setVoiceOk(h.voice); setLlmOk(h.llm); });
+    const poll = () => checkHealth().then((h) => { setVoiceOk(h.voice); setLlmOk(h.llm); setLinksOk(h.links); });
     poll();
     const t = setInterval(poll, 30_000);
     return () => clearInterval(t);
@@ -101,7 +119,21 @@ export function Demo() {
     setSentences({});
     fn().catch(() => setErr("That source could not be started. Check camera permissions or try another clip."));
   };
-  const onFile = (f?: File | null) => { if (f && f.type.startsWith("video/")) run(() => r.startUpload(f)); };
+  const onFile = (f?: File | null) => { if (f && f.type.startsWith("video/")) run(() => r.startUpload(f, crop)); };
+  const translateLink = async () => {
+    if (!link.trim() || fetching) return;
+    setErr(null);
+    setFetching(true);
+    const ac = (linkAbort.current = new AbortController());
+    try {
+      const file = await fetchVideo(link, ac.signal);
+      run(() => r.startUpload(file, crop));
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") setErr((e as Error).message);
+    } finally {
+      setFetching(false);
+    }
+  };
   const speakReply = (text: string) => {
     setMessages((m) => [...m, { key: `reply-${Date.now()}-${m.length}`, who: "staff", text }]);
     enqueue(text, settings.current.lang);
@@ -112,7 +144,7 @@ export function Demo() {
     return { key: m.key, who: m.who, text: typeof s === "object" ? s.text : s === "pending" ? "…" : m.text };
   });
   const newest = r.lines.at(-1);
-  const stageLabel = r.mode === "camera" ? "Signing live" : r.mode === "demo" ? "Example playing" : r.mode === "upload" ? "Reading your clip" : ready ? "Ready" : "Loading the model…";
+  const stageLabel = r.mode === "camera" ? "Signing live" : r.mode === "demo" ? `Example ${(example ?? 0) + 1} playing` : r.mode === "upload" ? "Reading your clip" : ready ? "Ready" : "Loading the model…";
   const allUp = ready && voiceOk && llmOk;
 
   return (
@@ -170,10 +202,26 @@ export function Demo() {
             caption={<Captions line={newest} sentence={newest ? sentences[newest.id] : undefined} lang={lang} />}
           />
 
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Examples">
+            <span className="mr-1 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">Examples</span>
+            {EXAMPLES.map((label, i) => (
+              <Pill key={label} disabled={!ready} aria-pressed={r.mode === "demo" && example === i}
+                onClick={() => { setExample(i); run(() => r.startDemo(i)); }}>
+                <Play className="h-4 w-4" />{i + 1} · {label}
+              </Pill>
+            ))}
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <Pill disabled={!ready} onClick={() => fileRef.current?.click()}><Upload className="h-4 w-4" />Upload clip</Pill>
-            <Pill disabled={!ready} onClick={() => run(r.startDemo)}><Play className="h-4 w-4" />Demo clip</Pill>
             <input ref={fileRef} type="file" accept="video/*" className="sr-only" tabIndex={-1} aria-label="Upload a video clip" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
+            <label className="inline-flex items-center gap-2 text-[15px] text-muted-foreground">
+              <span>Signer</span>
+              <select value={crop} onChange={(e) => setCrop(e.target.value as Crop)} aria-label="Signer position in an uploaded video"
+                className="h-12 rounded-[14px] border border-border bg-card px-3 text-[15px] font-medium text-foreground">
+                {CROP_LABELS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+              </select>
+            </label>
             <LangToggle value={lang} onChange={setLang} label="Spoken language" />
             <Switch checked={speakOn} onChange={setSpeakOn} label="Speak captions" />
             <button type="button" onClick={() => setMuted(!muted)} aria-pressed={muted} aria-label={muted ? "Unmute" : "Mute"}
@@ -182,6 +230,18 @@ export function Demo() {
             </button>
             <Equalizer active={playing && !muted} />
           </div>
+
+          {linksOk && (
+            <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); void translateLink(); }}>
+              <label htmlFor="video-link" className="sr-only">YouTube link to translate</label>
+              <input id="video-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a YouTube link (up to 3 minutes)…" autoComplete="off"
+                className="h-12 min-w-0 flex-1 rounded-[14px] border border-border bg-card px-4 text-base placeholder:text-muted-foreground" />
+              <Pill type="submit" disabled={!ready || fetching || !link.trim()}>
+                {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                {fetching ? "Getting the video…" : "Translate video"}
+              </Pill>
+            </form>
+          )}
 
           <div aria-live="polite" className="space-y-2">
             <p className={cn("min-h-5 text-sm", err ? "text-destructive" : "text-muted-foreground")}>{err ?? r.statusText}</p>

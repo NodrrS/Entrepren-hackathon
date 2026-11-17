@@ -17,14 +17,14 @@ export async function speak(text: string, lang: Lang, signal?: AbortSignal): Pro
   return res.blob();
 }
 
-/** Which server-side services answer: the voice (speech) and the LLM (sentences). */
-export async function checkHealth(): Promise<{ voice: boolean; llm: boolean }> {
+/** Which server-side services answer: the voice (speech), the LLM (sentences), and whether video links are on. */
+export async function checkHealth(): Promise<{ voice: boolean; llm: boolean; links: boolean }> {
   try {
     const res = await fetch("/api/health");
-    if (!res.ok) return { voice: false, llm: false };
-    const d = (await res.json()) as { ok?: boolean; llm?: boolean };
-    return { voice: d.ok === true, llm: d.llm === true };
+    if (!res.ok) return { voice: false, llm: false, links: false };
+    const d = (await res.json()) as { ok?: boolean; llm?: boolean; links?: boolean };
+    return { voice: d.ok === true, llm: d.llm === true, links: d.links === true };
   } catch {
-    return { voice: false, llm: false };
+    return { voice: false, llm: false, links: false };
   }
 }

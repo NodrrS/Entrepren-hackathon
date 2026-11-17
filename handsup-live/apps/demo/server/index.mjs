@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // Hands Up demo server: serves the built page (dist/) and two narrow routes: speech and sentence rewriting.
 //
-//   GET  /api/health   -> { ok: boolean, llm: boolean }   whether Voice Control / the LLM gateway answer
+//   GET  /api/health   -> { ok: boolean, llm: boolean, links: boolean }   whether Voice Control / the LLM gateway answer / video links work
 //   POST /api/tts      -> audio/wav     body { text: string (<= 400 chars), lang: "en" | "de" }
 //   POST /api/rewrite  -> { sentence, ms }   body { glosses: string, hints?: string, lang: "en" | "de" }
 //                         turns raw sign glosses into one natural sentence with an LLM (metacon, via LiteLLM)
+//   POST /api/video    -> video/mp4     body { url: a YouTube link }   only when VIDEO_LINKS=on and yt-dlp is installed
+//                         fetches a short clip (<= 3 min, <= 40 MB, 480p, no audio) for the page to translate
 //
 // The Voice Control URL and key (VOICE_CONTROL_URL, VOICE_CONTROL_API_KEY) and the LLM gateway settings
 // (LLM_BASE_URL, LLM_API_KEY, LLM_MODEL) come from the environment and never reach the browser. Only the
@@ -15,6 +17,7 @@ import { createServer } from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildMessages, cleanSentence } from "./rewrite-prompt.mjs";
+import { MESSAGES, createLimiter, downloadVideo, parseVideoId, ytdlpAvailable } from "./video-link.mjs";
 import { MAX_TEXT_CHARS, VOICES } from "./voices.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -37,6 +40,11 @@ const RATE_MAX = 30; // speech requests per client per minute
 const TTS_TIMEOUT_MS = 30_000;
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS ?? 6_000);
 const REWRITE_RATE_MAX = 40; // rewrite requests per client per minute
+// Video links: off unless VIDEO_LINKS=on (and yt-dlp is installed). One download at a time, 3 per client per hour.
+const LINKS_ON = process.env.VIDEO_LINKS === "on" && ytdlpAvailable();
+const VIDEO_PER_HOUR = 3;
+const videoLimited = createLimiter(VIDEO_PER_HOUR, 60 * 60_000);
+let videoBusy = false;
 
 // ---------------------------------------------------------------- helpers
 const TYPES = {
@@ -237,6 +245,32 @@ async function handleRewrite(req, res) {
   }
 }
 
+async function handleVideo(req, res) {
+  if (!LINKS_ON) return json(res, 503, { error: "Video links are not available on this server." });
+  if (!(req.headers["content-type"] ?? "").includes("application/json")) return json(res, 415, { error: "send JSON" });
+  let body;
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (e) {
+    return json(res, e.status === 413 ? 413 : 400, { error: "invalid request body" });
+  }
+  const id = parseVideoId(body?.url);
+  if (!id) return json(res, 400, { error: "That is not a YouTube link. Paste a link like https://www.youtube.com/watch?v=…" });
+  if (videoBusy) return json(res, 503, { error: "Another video is being fetched. Try again in a minute." });
+  if (videoLimited(clientId(req))) return json(res, 429, { error: `Video links are limited to ${VIDEO_PER_HOUR} per hour. Try again later.` });
+  videoBusy = true;
+  try {
+    const mp4 = await downloadVideo(id);
+    send(res, 200, mp4, { "Content-Type": "video/mp4", "Content-Length": mp4.length, "Cache-Control": "no-store" });
+  } catch (e) {
+    const [status, error] = MESSAGES[e?.code] ?? MESSAGES.failed;
+    console.error(`video failed: ${e?.code ?? "error"}`);
+    json(res, Number(status), { error });
+  } finally {
+    videoBusy = false;
+  }
+}
+
 async function handleTts(req, res) {
   if (!(req.headers["content-type"] ?? "").includes("application/json")) return json(res, 415, { error: "send JSON" });
   if (rateLimited(clientId(req))) return json(res, 429, { error: "Too many requests. Try again in a minute." });
@@ -298,7 +332,11 @@ const server = createServer(async (req, res) => {
     const p = url.pathname;
     if (p === "/api/health" && req.method === "GET") {
       const [ok, llm] = await Promise.all([voiceUp(), llmUp()]);
-      return json(res, 200, { ok, llm });
+      return json(res, 200, { ok, llm, links: LINKS_ON });
+    }
+    if (p === "/api/video") {
+      if (req.method !== "POST") return json(res, 405, { error: "POST only" });
+      return await handleVideo(req, res);
     }
     if (p === "/api/rewrite") {
       if (req.method !== "POST") return json(res, 405, { error: "POST only" });
@@ -319,7 +357,7 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Hands Up demo on http://${HOST}:${PORT} (voice service ${VC_KEY ? "with key" : "without key"}; sentences ${LLM_KEY ? `via ${LLM_MODEL}` : "off (no LLM_API_KEY)"}; serving ${DIST})`);
+  console.log(`Hands Up demo on http://${HOST}:${PORT} (voice service ${VC_KEY ? "with key" : "without key"}; sentences ${LLM_KEY ? `via ${LLM_MODEL}` : "off (no LLM_API_KEY)"}; video links ${LINKS_ON ? "on" : "off"}; serving ${DIST})`);
   // Load the model now so the first visitor does not wait for a cold start.
   if (LLM_KEY) rewriteSentence("MORGEN WETTER", "", "en").catch(() => {});
 });

@@ -3,12 +3,12 @@
  * against); to use a hosted recognition API later, swap the engine behind it (see recognizer/engine.ts).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
-import { RecognizerEngine, type CaptionLine, type Mode, type Phase, type Snapshot, type StatusKind } from "./recognizer/engine";
+import { RecognizerEngine, type CaptionLine, type Crop, type Mode, type Phase, type Snapshot, type StatusKind } from "./recognizer/engine";
 
 export type Lang = "en" | "de";
 export type RecognizerMode = Mode;
 export type RecognizerPhase = Phase;
-export type { CaptionLine };
+export type { CaptionLine, Crop };
 
 export interface RecognizerApi {
   phase: RecognizerPhase;
@@ -22,8 +22,10 @@ export interface RecognizerApi {
   showSkeleton: boolean;
   setShowSkeleton(v: boolean): void;
   startCamera(): Promise<void>;
-  startDemo(): Promise<void>;
-  startUpload(file: File): Promise<void>;
+  /** Plays a recorded example clip: the one at `index`, or the next in turn without an index. */
+  startDemo(index?: number): Promise<void>;
+  /** Reads a video file; `crop` says where the signer is in the frame (default: the whole frame). */
+  startUpload(file: File, crop?: Crop): Promise<void>;
   stop(): void;
   onLineFinal(cb: (line: CaptionLine) => void): () => void;
 }
@@ -68,8 +70,8 @@ export function useRecognizer(): RecognizerApi {
   const snap = useSyncExternalStore(engine ? engine.subscribe : noopSubscribe, engine ? engine.getSnapshot : getEmpty);
 
   const startCamera = useCallback(async () => void (await engineRef.current?.startCamera()), []);
-  const startDemo = useCallback(async () => void (await engineRef.current?.startDemo()), []);
-  const startUpload = useCallback(async (file: File) => void (await engineRef.current?.startUpload(file)), []);
+  const startDemo = useCallback(async (index?: number) => void (await engineRef.current?.startDemo(index)), []);
+  const startUpload = useCallback(async (file: File, crop?: Crop) => void (await engineRef.current?.startUpload(file, crop)), []);
   const stop = useCallback(() => engineRef.current?.stop(), []);
   const setShowSkeleton = useCallback((v: boolean) => engineRef.current?.setShowSkeleton(v), []);
   const onLineFinal = useCallback((cb: (line: CaptionLine) => void) => {
