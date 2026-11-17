@@ -1,5 +1,7 @@
 # Founder cases: scoring and recommendation
 
+**Decision (12:20): Hands Up (Karmel Salah).** Karmel delivers the sign-to-text model; we build integration, demo page and pitch. See README for the plan.
+
 Entrepreneurship Festival Berlin, 17 Nov 2026, scored 10:00–10:45.
 
 ## Scores
