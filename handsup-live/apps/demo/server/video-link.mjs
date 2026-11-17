@@ -68,8 +68,21 @@ function fail(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-/** Downloads the video to a temporary folder, reads it and always deletes the folder. Errors carry a `code`. */
+/**
+ * Downloads the video; one automatic retry for the failures YouTube sometimes gives for no lasting reason
+ * (a clip that is really too long, too big or private is not retried). Errors carry a `code`.
+ */
 export async function downloadVideo(id) {
+  try {
+    return await downloadOnce(id);
+  } catch (e) {
+    if (e?.code !== "failed" && e?.code !== "not-available") throw e;
+    return await downloadOnce(id);
+  }
+}
+
+/** One download attempt into a temporary folder; reads the file and always deletes the folder. */
+async function downloadOnce(id) {
   const dir = await mkdtemp(join(tmpdir(), "handsup-video-"));
   try {
     const args = [
@@ -99,7 +112,7 @@ export async function downloadVideo(id) {
     if (files.length === 0) {
       if (/does not pass filter|live event|is live/i.test(out.text)) throw fail("too-long", "too long or live");
       if (/File is larger than max-filesize/i.test(out.text)) throw fail("too-big", "too big");
-      if (/Private video|unavailable|not available|removed|Sign in|age|copyright/i.test(out.text)) throw fail("not-available", "not available");
+      if (/Private video|Video unavailable|has been removed|no longer available|Sign in to confirm|copyright/i.test(out.text)) throw fail("not-available", "not available");
       throw fail("failed", "download failed");
     }
     const file = join(dir, files[0]);
