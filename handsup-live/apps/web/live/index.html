@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Privacy (D-004): only this origin may be contacted (no CDN, no analytics, no upload).
+      connect-src 'self' also blocks the usage logger bundled in @mediapipe/tasks-vision 1.0.1.
+      'wasm-unsafe-eval' compiles the MediaPipe and onnxruntime WASM.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self'; worker-src 'self' blob:; font-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#14161a" />
+    <meta name="description" content="Hands Up live sign recognition research demo. Runs on your device; video never leaves it." />
+    <title>Hands Up Live</title>
+    <link rel="stylesheet" href="/src/live/live.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">✋</span>
+        <h1>Hands Up <span>Live</span></h1>
+      </div>
+      <span class="badge">Research demo</span>
+    </header>
+
+    <main>
+      <p class="intro">
+        Sign to the camera and see the signs as text, live. This model knows about
+        <strong>1,200 German Sign Language (DGS) signs from TV weather forecasts</strong>, so everyday signing will
+        mostly give wrong or no words. <strong>Video never leaves this device.</strong>
+      </p>
+
+      <section id="status" class="status" role="status" aria-live="polite">Loading the models…</section>
+
+      <div id="stage" class="stage" data-mirrored="true">
+        <video id="video" playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div id="placeholder" class="placeholder">
+          <p>Press <strong>Start</strong> to use your camera, or <strong>Demo clip</strong> to see the model on a recorded skeleton.</p>
+        </div>
+        <div class="live-caption" aria-hidden="true">
+          <p id="cap-de" class="cap-de"></p>
+          <p id="cap-en" class="cap-en"></p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="start" type="button" class="primary" disabled>Start</button>
+        <button id="flip" type="button" title="Switch between the front and the back camera">Flip camera</button>
+        <button id="demo" type="button" disabled>Demo clip</button>
+        <label class="toggle"><input id="landmarks" type="checkbox" checked /> Skeleton</label>
+      </div>
+
+      <section id="slow" class="panel warn" hidden>
+        <p id="slow-text">This device is slow for live recognition, so results will be poor.</p>
+        <button id="slow-demo" type="button">Play the demo clip instead</button>
+      </section>
+
+      <section class="captions" aria-labelledby="captions-title">
+        <h2 id="captions-title">Captions</h2>
+        <ol id="lines" class="lines" aria-live="polite"></ol>
+        <p id="reference" class="reference" hidden></p>
+        <p class="legend">Top: German sign glosses. Below: rough English words, <span class="unknown">?</span> = no English word yet.</p>
+      </section>
+
+      <dl class="meters">
+        <div><dt>Camera</dt><dd id="m-fps">–</dd></div>
+        <div><dt>Delay</dt><dd id="m-delay">–</dd></div>
+        <div><dt>Model step</dt><dd id="m-step">–</dd></div>
+        <div><dt>Engine</dt><dd id="m-engine">–</dd></div>
+      </dl>
+      <p class="fineprint">Delay: from the last frame of each 0.32 s chunk to its result, on this device. Signs are read in chunks of 8 frames at 25 frames a second.</p>
+    </main>
+
+    <footer class="foot">
+      <p>
+        <strong>Research demo.</strong> The sign model (fc10, a streaming transformer from a master's thesis) was
+        trained on the RWTH-PHOENIX-Weather 2014 data set, which is for <strong>non-commercial research only</strong>;
+        so is this model. Hands Up will train its own models on its own data before any product use.
+      </p>
+      <p>
+        Everything runs in this browser: MediaPipe finds the body and hand points, and the sign model reads only those
+        points. No video, image or point is stored or sent anywhere, there are no cookies and no analytics, and the
+        camera turns off when you leave the page.
+      </p>
+      <p class="credits">MediaPipe (Apache-2.0), ONNX Runtime Web (MIT). Glosses: PHOENIX-2014 annotation conventions.</p>
+    </footer>
+    <script type="module" src="/src/live/main.ts"></script>
+  </body>
+</html>

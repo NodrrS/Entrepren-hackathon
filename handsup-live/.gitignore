@@ -1,0 +1,55 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# data & models: never commit
+datasets/raw/
+datasets/processed/
+*.mp4
+*.mov
+*.avi
+*.webm
+*.npy
+*.npz
+*.parquet
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.tflite
+ml/runs/
+ml/checkpoints/
+
+# build / deps
+node_modules/
+.next/
+dist/
+build/
+.expo/
+__pycache__/
+.venv/
+*.pyc
+
+# local
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+.claude/locks/
+.claude/settings.local.json
+
+# self-hosted MediaPipe assets (copied from node_modules / downloaded with approval; hashes are in mediapipe-assets.json)
+apps/web/public/mediapipe/
+apps/web/public/models/*
+!apps/web/public/models/.gitkeep
+*.task
+# /live assets (copied and SHA-256-checked by apps/web/scripts/sync-live-assets.mjs; PHOENIX-derived demo landmarks are never committed)
+apps/web/public/demo/
+
+# handsupai.com deploy folder (holds model files; built by scripts/build-handsupai.mjs)
+deploy/handsupai/public/
+deploy/handsupai/.wrangler/

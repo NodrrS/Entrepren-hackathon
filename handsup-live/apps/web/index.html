@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Privacy (D-004): only this origin may be contacted. connect-src 'self' also blocks the
+      usage logger bundled in @mediapipe/tasks-vision 1.0.1 (odml.pa.googleapis.com).
+      'wasm-unsafe-eval' is required to compile the MediaPipe WASM.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self'; worker-src 'self' blob:; font-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hands Up harness</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Hands Up: landmark harness</h1>
+      <p class="note">Everything runs on this device. Video is never stored or sent. The camera turns off when you leave this tab.</p>
+    </header>
+
+    <main>
+      <section id="status" class="status" role="status" aria-live="polite">Checking the model files…</section>
+
+      <section id="missing" class="panel" hidden>
+        <h2>Model files missing</h2>
+        <p>The MediaPipe model <code>holistic_landmarker.task</code> is not in <code>apps/web/public/models/</code>, or its SHA-256 is not pinned yet.</p>
+        <ol>
+          <li>Get approval for the download (see the P1-01 report).</li>
+          <li>Save the file from the URL in <code>apps/web/mediapipe-assets.json</code> to <code>apps/web/public/models/holistic_landmarker.task</code>.</li>
+          <li>Run <code>npm run models:pin -w @handsup/web</code>, review and commit the recorded hash, then reload.</li>
+        </ol>
+        <p id="missing-detail" class="detail"></p>
+      </section>
+
+      <div class="controls">
+        <button id="start" type="button" disabled>Start camera</button>
+        <button id="stop" type="button" disabled>Stop camera</button>
+      </div>
+
+      <div class="stage">
+        <video id="video" playsinline muted></video>
+        <canvas id="overlay"></canvas>
+      </div>
+
+      <dl class="meters">
+        <div><dt>FPS</dt><dd id="fps">–</dd></div>
+        <div><dt>Inference</dt><dd id="latency">–</dd></div>
+        <div><dt>Delegate</dt><dd id="delegate">–</dd></div>
+        <div><dt>Parts</dt><dd id="parts">–</dd></div>
+        <div><dt>Reference</dt><dd id="reference">–</dd></div>
+        <div><dt>Blocked requests</dt><dd id="blocked">0</dd></div>
+      </dl>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "name": "@handsup/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hands Up web app: P1-01 landmark harness (/) and the live sign translation research demo (/live/), all on device.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "wasm:sync": "node scripts/sync-mediapipe-wasm.mjs",
+    "models:pin": "node scripts/pin-model.mjs",
+    "predev": "npm run wasm:sync && npm run live:sync",
+    "dev": "vite",
+    "prebuild": "npm run wasm:sync && npm run live:sync",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "live:sync": "node scripts/sync-live-assets.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@handsup/fc10-runtime": "0.1.0",
+    "@handsup/sign-engine": "0.1.0",
+    "@mediapipe/tasks-vision": "1.0.1"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vite": "8.3.1",
+    "vitest": "5.0.3"
+  }
+}

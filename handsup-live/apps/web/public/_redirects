@@ -1,0 +1,2 @@
+# Cloudflare Pages redirects: the bare domain opens the live demo (the P1-01 harness is a dev tool).
+/  /live/  302
