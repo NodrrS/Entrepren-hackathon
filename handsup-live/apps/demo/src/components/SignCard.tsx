@@ -36,6 +36,7 @@ export function SignCard({ className }: { className?: string | undefined }) {
   latest.current = r.lines;
   // Finished lines are rewritten and spoken strictly in order: each waits for the one before it.
   const chain = useRef<Promise<void>>(Promise.resolve());
+  const lastFail = useRef(0);
 
   useEffect(() => {
     const poll = () => checkHealth().then((h) => { setVoiceOk(h.voice); setLlmOk(h.llm); });
@@ -48,14 +49,19 @@ export function SignCard({ className }: { className?: string | undefined }) {
     chain.current = chain.current.then(async () => {
       const { lang: l, speakOn: speak, llmOk: llm } = settings.current;
       let text = captionText(line, l);
-      if (llm) {
+      // Always try the rewrite (a cached health flag can be stale). After a failure, skip it for 15 s so an
+      // outage does not delay every spoken line by the request timeout.
+      if (llm || Date.now() - lastFail.current > 15_000) {
         setSentences((s) => ({ ...s, [line.id]: "pending" }));
         try {
           const inp = rewriteInput(line, l);
           const out = await rewrite(inp.glosses, inp.hints, l);
           setSentences((s) => ({ ...s, [line.id]: { text: out.sentence, ms: out.ms, lang: l } }));
           text = out.sentence;
+          setLlmOk(true);
         } catch {
+          lastFail.current = Date.now();
+          setLlmOk(false);
           setSentences((s) => ({ ...s, [line.id]: "failed" }));
         }
       }
