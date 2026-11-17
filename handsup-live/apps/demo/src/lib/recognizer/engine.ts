@@ -177,10 +177,10 @@ export class RecognizerEngine {
       if (this.disposed) return;
       if (model.status === "fulfilled" && mp.status === "fulfilled") {
         this.update({ phase: "ready", progress: 1 });
-        if (this.snap.mode === "idle") this.setStatus("Ready. Start the camera, upload a clip, or try the demo clip.", "ok");
+        if (this.snap.mode === "idle") this.setStatus("Ready. Start the camera, upload a clip, or play an example.", "ok");
       } else {
         const err = (mp.status === "rejected" ? mp.reason : (model as PromiseRejectedResult).reason) as Error;
-        this.fail(`Could not load ${mp.status === "rejected" ? "the body and hand tracker" : "the sign model"}: ${err.message}${model.status === "fulfilled" ? " The demo clip still works." : ""}`);
+        this.fail(`Could not load ${mp.status === "rejected" ? "the body and hand tracker" : "the sign model"}: ${err.message}${model.status === "fulfilled" ? " The examples still work." : ""}`);
       }
     });
   }
@@ -353,7 +353,7 @@ export class RecognizerEngine {
     if (code === "camera-denied" || code === "camera-unavailable") {
       const m = /Camera:\s*([A-Za-z]+Error)/.exec(error.message);
       const name = m?.[1] ?? "UnknownError";
-      this.setStatus(`${cameraErrorHelp(name, navigator.userAgent)} The demo clip works without a camera.`, "warn");
+      this.setStatus(`${cameraErrorHelp(name, navigator.userAgent)} The examples work without a camera.`, "warn");
     } else {
       this.setStatus(`Something went wrong: ${error.message}`, "error");
     }
@@ -410,10 +410,10 @@ export class RecognizerEngine {
     if (problem) {
       this.setStatus(
         problem === "in-app-browser"
-          ? "This in-app browser cannot use the camera. Open the page in Chrome or Safari, or use the demo clip."
+          ? "This in-app browser cannot use the camera. Open the page in Chrome or Safari, or use an example."
           : problem === "insecure"
             ? "The camera needs a secure (https) page."
-            : "This browser cannot use the camera. Use the demo clip or upload a clip.",
+            : "This browser cannot use the camera. Use an example or upload a clip.",
         "warn",
       );
       return;
@@ -426,7 +426,7 @@ export class RecognizerEngine {
         for (const t of probe.getTracks()) t.stop();
       } catch (err) {
         const name = (err as { name?: string }).name ?? "UnknownError";
-        this.setStatus(`${cameraErrorHelp(name, navigator.userAgent)} The demo clip works without a camera.`, "warn");
+        this.setStatus(`${cameraErrorHelp(name, navigator.userAgent)} The examples work without a camera.`, "warn");
         return;
       }
     }
@@ -452,7 +452,7 @@ export class RecognizerEngine {
 
   async startUpload(file: File, crop: Crop = "whole"): Promise<void> {
     if (!canUploadClips()) {
-      this.setStatus("Uploading a clip needs Chrome, Edge or Firefox on a computer or Android phone. The demo clip works everywhere.", "warn");
+      this.setStatus("Uploading a clip needs Chrome, Edge or Firefox on a computer or Android phone. The examples work everywhere.", "warn");
       return;
     }
     try {
@@ -516,7 +516,7 @@ export class RecognizerEngine {
     this.clearOverlay();
     this.setMode("idle");
     this.setStatus(
-      this.runGlosses ? "Finished. Upload another clip, or try the camera." : "Finished, but no signs were recognised. The model only knows German weather-forecast signs; try the demo clip.",
+      this.runGlosses ? "Finished. Upload another clip, or try the camera." : "Finished, but no signs were recognised. The model only knows German weather-forecast signs; play an example.",
       this.runGlosses ? "ok" : "warn",
     );
   }
@@ -549,7 +549,7 @@ export class RecognizerEngine {
     try {
       clips = await this.loadDemo();
     } catch (err) {
-      this.setStatus(`The demo clip is not available on this server (${(err as Error).message}).`, "error");
+      this.setStatus(`The examples are not available on this server (${(err as Error).message}).`, "error");
       return;
     }
     const n = (index ?? this.demoIndex++) % clips.length;
@@ -569,7 +569,7 @@ export class RecognizerEngine {
         this.finishLine();
         this.setMode("idle");
         this.clearOverlay();
-        this.setStatus("Demo ended early: this device or tab was too slow. Press Demo clip to try again.", "warn");
+        this.setStatus("The example ended early: this device or tab was too slow. Press an example to try again.", "warn");
       }
     }, (clip.frames.length / FC10.fps) * 1000 + 15000);
     const tick = (): void => {
@@ -594,7 +594,7 @@ export class RecognizerEngine {
           this.finishLine();
           this.clearOverlay();
           this.setMode("idle");
-          this.setStatus("Demo finished. Press Demo clip for another one, or start your camera.", "ok");
+          this.setStatus("Example finished. Pick another example, or start your camera.", "ok");
         });
         return;
       }
@@ -629,7 +629,7 @@ export class RecognizerEngine {
   stop(): void {
     const was = this.snap.mode;
     this.stopAll();
-    if (was !== "idle") this.setStatus("Stopped. Start the camera, upload a clip, or try the demo clip.", "info");
+    if (was !== "idle") this.setStatus("Stopped. Start the camera, upload a clip, or play an example.", "info");
   }
 
   dispose(): void {

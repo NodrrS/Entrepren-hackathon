@@ -65,6 +65,10 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-coral: var(--coral);
+  --color-tile: var(--tile);
+  --color-tile-ink: var(--tile-ink);
+  --color-panel: var(--panel);
+  --color-body-2: var(--body-2);
   --color-stage: var(--stage);
   --color-stage-chip: var(--stage-chip);
   --color-hairline: var(--hairline);
@@ -114,6 +118,10 @@
   --hairline: oklch(0.943 0 0); /* #ECECEC header rule */
   --input: oklch(0.876 0 0);
   --ring: var(--coral);
+  --tile: oklch(0.968 0.017 40.8); /* #FFF1EC picture tiles, setup illustration */
+  --tile-ink: oklch(0.429 0.135 34.8); /* #8A2A12 */
+  --panel: oklch(0.970 0 0); /* #F5F5F5 staff-reply panel, quick-reply chips */
+  --body-2: oklch(0.409 0 0); /* #4A4A4A secondary text */
   --stage: oklch(0.222 0 0); /* #1B1B1B */
   --stage-chip: oklch(0.301 0 0); /* #2E2E2E */
   --link: oklch(0.529 0.167 34.4); /* #B83A1C */
