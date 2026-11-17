@@ -50,3 +50,14 @@
 .camera-box summary { cursor: pointer; color: var(--sky); font-weight: 600; padding: 8px 0; }
 .credits-list { padding-left: 18px; margin: 4px 0; }
 .credits-list a, .foot a { color: var(--sky); }
+.guided { border-color: var(--coral); }
+.guided-title { margin: 0 0 4px; font-size: 1.05rem; }
+.g-steps { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.g-steps li { padding: 4px 10px; border-radius: 999px; background: var(--ink-3); color: var(--muted); font-weight: 600; font-size: 0.9rem; }
+.g-steps li.now { background: var(--paper); color: var(--ink); outline: 3px solid var(--coral); }
+.g-steps li.ok { background: #1f5c3f; color: #fff; }
+.g-steps li.loose { background: #2d4a3a; color: #fff; }
+.g-steps li.skip { background: #4a3a1f; color: #fff; }
+.g-hint { min-height: 1.4em; color: var(--warn); font-weight: 600; margin: 4px 0; }
+.mode.pulse { animation: pulse 1s ease-in-out infinite alternate; }
+@keyframes pulse { from { box-shadow: 0 0 0 0 rgba(255, 90, 54, 0.8); } to { box-shadow: 0 0 0 10px rgba(255, 90, 54, 0); } }

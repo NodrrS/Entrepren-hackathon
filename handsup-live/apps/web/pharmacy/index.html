@@ -60,6 +60,20 @@
 
       <!-- A: the customer signs -->
       <section id="pane-customer" class="pane">
+        <div class="panel guided">
+          <p class="guided-title"><strong>Geführtes Szenario mit Kamera</strong></p>
+          <p class="fineprint">Geführtes Szenario: erkennt einfache Merkmale der erwarteten Gebärden (Handposition am Kopf oder vor der Brust, Bewegung). Schritte mit „~“ zählen jede deutliche Gebärde. Keine freie Erkennung.</p>
+          <div class="controls">
+            <button id="g-turn1" type="button" class="primary big-btn">▶ Teil 1: Kundin (Kamera)</button>
+            <button id="g-turn3" type="button">▶ Teil 3: „Danke“ (Kamera)</button>
+          </div>
+          <ol id="g-steps" class="g-steps"></ol>
+          <p id="g-hint" class="g-hint"></p>
+          <div class="controls">
+            <button id="g-next" type="button" disabled>Weiter (Schritt überspringen)</button>
+            <button id="g-stop" type="button" disabled>Beenden</button>
+          </div>
+        </div>
         <p class="panel note"><strong>Szenario-Demo mit DGS-Videos aus SignDict.</strong> Die Gebärden der Kundin werden aus
           aufgezeichneten Videos abgespielt; MediaPipe zeigt das Skelett, und der Text entsteht Wort für Wort. Fehlende
           Gebärden (ohne freie Lizenz) erscheinen als Textkarte.</p>
@@ -74,7 +88,7 @@
           <p id="sentence-en" class="sentence-en"></p>
         </div>
 
-        <details class="camera-box">
+        <details class="camera-box" id="camera-box">
           <summary>Mit der Kamera selbst gebärden (experimentell)</summary>
           <p class="fineprint">Die Kamera zeigt Ihr Skelett. Die Erkennung vergleicht mit nur einem Beispielvideo pro Gebärde; bei anderen Personen liegt sie oft daneben.</p>
           <div id="stage" class="stage" data-mirrored="true">
@@ -97,7 +111,7 @@
       <!-- B: the pharmacist answers -->
       <section id="pane-reply" class="pane" hidden>
         <div class="controls">
-          <button id="answer" type="button" class="primary big-btn">▶ Antwort der Apotheke</button>
+          <button id="answer" type="button" class="primary big-btn">▶ Rezept-Antwort (Teil 2)</button>
         </div>
         <p class="fineprint" id="answer-text"></p>
         <div class="quick" id="quick"></div>

@@ -18,6 +18,7 @@ import { cameraErrorHelp, cameraProblem } from "../live/camera-support";
 import { SignSegmenter, aspectCorrect, classify, sequenceFeatures, type RawSeqFrame } from "./classify";
 import { DgsPlayer, featureFrames, loadDgs, stepsFor, type DgsData, type Step, type View } from "./dgs";
 import { normalise } from "./words";
+import { TURN_1, TURN_3, checkStep, type GuidedTurn } from "./guided";
 
 const guard = installNetworkGuard(window);
 guard.onBlocked((r) => console.warn(`Hands Up blocked an outbound ${r.api} request to ${r.url}`));
@@ -112,6 +113,16 @@ function renderWords(): void {
   }
   words.forEach((w, i) => {
     const span = document.createElement("span");
+    if (w.confidence === -1 || (w.confidence !== null && w.confidence >= 0 && guidedView)) {
+      // guided scenario: ✓ rule matched, ~ any clear sign, ⏭ skipped by the presenter
+      span.className = `w${w.confidence === -1 ? " text" : ""}${i === words.length - 1 ? " new" : ""}`;
+      span.textContent = w.de;
+      const sm = document.createElement("small");
+      sm.textContent = `${w.gloss} · ${w.confidence === -1 ? "übersprungen" : w.confidence === 1 ? "✓ Merkmal" : "~ Gebärde"}`;
+      span.append(sm);
+      ui.sentence.append(span);
+      return;
+    }
     const low = w.confidence !== null && w.confidence < 0.35;
     span.className = `w${w.confidence === null ? " text" : ""}${low ? " low" : ""}${i === words.length - 1 ? " new" : ""}`;
     span.textContent = (low ? "? " : "") + w.de;
@@ -124,6 +135,7 @@ function renderWords(): void {
 
 async function runScenario(index: number): Promise<void> {
   if (!data || !player) return;
+  guidedView = false;
   if (running) stopCamera();
   const sent = data.sentences[index];
   if (!sent) return;
@@ -281,6 +293,10 @@ if (!SRCtor) {
 const camWords: Word[] = [];
 const segmenter = new SignSegmenter((frames) => {
   ui.signing.hidden = true;
+  if (guided) {
+    onGuidedSegment(frames);
+    return;
+  }
   if (!data) return;
   const q = sequenceFeatures(frames, false, 6, "body");
   const p = q ? classify(q, data.templates) : null;
@@ -439,6 +455,105 @@ ui.clear.addEventListener("click", () => {
 ui.copyLink.addEventListener("click", () => {
   void navigator.clipboard?.writeText(ui.openinUrl.textContent ?? location.href).then(() => (ui.copyLink.textContent = "Kopiert"));
 });
+
+// ---------------------------------------------------------------- guided scenario (camera)
+const g = {
+  turn1: $<HTMLButtonElement>("g-turn1"),
+  turn3: $<HTMLButtonElement>("g-turn3"),
+  steps: $("g-steps"),
+  hint: $("g-hint"),
+  next: $<HTMLButtonElement>("g-next"),
+  stop: $<HTMLButtonElement>("g-stop"),
+  cameraBox: $<HTMLDetailsElement>("camera-box"),
+};
+let guided: { turn: GuidedTurn; i: number; marks: ("ok" | "loose" | "skip")[] } | null = null;
+let guidedView = false;
+
+function renderGuided(): void {
+  g.steps.textContent = "";
+  if (!guided) return;
+  guided.turn.steps.forEach((st, i) => {
+    const li = document.createElement("li");
+    const m = guided!.marks[i];
+    li.className = m ?? (i === guided!.i ? "now" : "");
+    li.textContent = `${st.gloss}${m === "loose" ? " ~" : m === "ok" ? " ✓" : m === "skip" ? " ⏭" : ""}`;
+    g.steps.append(li);
+  });
+  const cur = guided.turn.steps[guided.i];
+  g.hint.textContent = cur ? `Jetzt: ${cur.gloss} (${cur.hint})` : "";
+}
+
+function guidedWords(): void {
+  if (!guided) return;
+  words.length = 0;
+  guided.turn.steps.forEach((st, i) => {
+    const m = guided!.marks[i];
+    if (m) words.push({ gloss: st.gloss, de: st.de, en: "", confidence: m === "skip" ? -1 : m === "ok" ? 1 : 0.5 });
+  });
+  renderWords();
+}
+
+function advance(mark: "ok" | "loose" | "skip"): void {
+  if (!guided) return;
+  guided.marks[guided.i] = mark;
+  guided.i++;
+  guidedWords();
+  if (guided.i >= guided.turn.steps.length) {
+    ui.sentenceDe.textContent = guided.turn.de;
+    ui.sentenceEn.textContent = guided.turn.en;
+    const turn = guided.turn;
+    guided = null;
+    renderGuided();
+    g.hint.textContent = "";
+    g.next.disabled = true;
+    g.stop.disabled = true;
+    stopCamera();
+    if (turn === TURN_1) {
+      ui.tabReply.classList.add("pulse");
+      setStatus("Teil 1 fertig. Jetzt „Apotheke antwortet“ → „Rezept-Antwort“.", "ok");
+    } else setStatus("Szenario fertig.", "ok");
+    return;
+  }
+  renderGuided();
+}
+
+function onGuidedSegment(frames: RawSeqFrame[]): void {
+  if (!guided) return;
+  const st = guided.turn.steps[guided.i]!;
+  const c = checkStep(st, frames);
+  if (c.ok) advance(c.how === "rule" ? "ok" : "loose");
+  else g.hint.textContent = `Noch einmal ${st.gloss}: ${st.hint}`;
+}
+
+async function startGuided(turn: GuidedTurn): Promise<void> {
+  player?.stop();
+  ui.player.hidden = true;
+  ui.tabReply.classList.remove("pulse");
+  guided = { turn, i: 0, marks: [] };
+  guidedView = true;
+  words.length = 0;
+  renderWords();
+  ui.sentenceDe.textContent = "";
+  ui.sentenceEn.textContent = "";
+  renderGuided();
+  g.next.disabled = false;
+  g.stop.disabled = false;
+  g.cameraBox.open = true;
+  g.cameraBox.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (!running) await startCamera();
+}
+g.turn1.addEventListener("click", () => void startGuided(TURN_1));
+g.turn3.addEventListener("click", () => void startGuided(TURN_3));
+g.next.addEventListener("click", () => advance("skip"));
+g.stop.addEventListener("click", () => {
+  guided = null;
+  renderGuided();
+  g.hint.textContent = "";
+  g.next.disabled = true;
+  g.stop.disabled = true;
+  stopCamera("Geführtes Szenario beendet.");
+});
+ui.tabReply.addEventListener("click", () => ui.tabReply.classList.remove("pulse"));
 
 // ---------------------------------------------------------------- start-up
 bindCameraLifecycle({ document, window }, () => {

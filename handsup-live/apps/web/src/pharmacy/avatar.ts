@@ -79,13 +79,27 @@ export function drawAvatar(ctx: CanvasRenderingContext2D, f: RawSeqFrame, fit: F
       ctx.lineWidth = line * 1.6;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      // torso: shoulders to hips (hips only when they are inside the video)
+      ctx.strokeStyle = "rgba(255, 90, 54, 0.55)";
+      ctx.lineWidth = line * 1.4;
+      const hipsIn = p[23 * 3 + 1]! < 0.98 && p[24 * 3 + 1]! < 0.98;
+      const hipY = (i: number) => (hipsIn ? Y(i) : Math.min(h - 2, Y(i)));
+      ctx.beginPath();
+      ctx.moveTo(X(11), Y(11));
+      ctx.lineTo(X(23), hipY(23));
+      ctx.lineTo(X(24), hipY(24));
+      ctx.lineTo(X(12), Y(12));
+      ctx.stroke();
+      ctx.strokeStyle = "#FF5A36";
+      ctx.lineWidth = line * 1.6;
       for (const [a, b, c, hand, start] of [[11, 13, 15, 1, 33], [12, 14, 16, 2, 54]] as const) {
         ctx.beginPath();
         ctx.moveTo(X(a), Y(a));
         ctx.lineTo(X(b), Y(b));
-        // end the arm at the tracked hand's wrist when there is one, else at the pose wrist
-        const hx = f.present[hand] ? X(start) : X(c), hy = f.present[hand] ? Y(start) : Y(c);
-        if (hy < h * 1.05) ctx.lineTo(hx, hy);
+        // forearm to the tracked hand's wrist; without a tracked hand only when the pose wrist is inside
+        // the video (a hand out of view is hidden, not drawn as a stray arm)
+        if (f.present[hand]) ctx.lineTo(X(start), Y(start));
+        else if (p[c * 3 + 1]! < 0.98) ctx.lineTo(X(c), Y(c));
         ctx.stroke();
       }
     }
