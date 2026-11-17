@@ -26,6 +26,9 @@ import { MAX_TEXT_CHARS, VOICE_STYLES, VOICES } from "./voices.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DIST = resolve(here, "..", "dist");
+// The Apotheke (DGS) mode's data (sign videos, word lists) lives in the web app and is committed there. On
+// dev.handsupai.com both apps share one site; here this server serves that one folder, read-only, at /pharmacy/.
+const PHARMACY = resolve(here, "..", "..", "web", "public", "pharmacy");
 const PORT = Number(process.env.PORT ?? 8810);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const VC_URL = (process.env.VOICE_CONTROL_URL ?? "http://127.0.0.1:8765").replace(/\/+$/, "");
@@ -65,6 +68,8 @@ const TYPES = {
   ".onnx": "application/octet-stream",
   ".task": "application/octet-stream",
   ".webmanifest": "application/manifest+json",
+  ".mp4": "video/mp4",
+  ".md": "text/markdown; charset=utf-8",
 };
 
 // The page may only talk to its own origin (AGENTS.md section 6). blob: serves the generated audio and video.
@@ -94,7 +99,7 @@ const SECURITY_HEADERS = {
 function cacheFor(path) {
   if (path.startsWith("/app/") || path.startsWith("/assets/")) return "public, max-age=31536000, immutable"; // hashed build files
   if (path.startsWith("/models/") || path.startsWith("/mediapipe/")) return "public, max-age=2592000";
-  if (path.startsWith("/demo/")) return "public, max-age=86400";
+  if (path.startsWith("/demo/") || path.startsWith("/pharmacy/")) return "public, max-age=86400";
   return "no-cache";
 }
 
@@ -374,23 +379,39 @@ function serveStatic(req, res, pathname) {
   } catch {
     return json(res, 400, { error: "bad path" });
   }
-  let file = normalize(join(DIST, rel));
-  if (file !== DIST && !file.startsWith(DIST + sep)) return json(res, 403, { error: "forbidden" });
-  if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
-  if (!existsSync(file)) {
+  // /pharmacy/... comes from the web app's pharmacy folder (files only, no page fallback); everything else from dist/.
+  const pharmacy = rel === "/pharmacy" || rel.startsWith("/pharmacy/");
+  const root = pharmacy ? PHARMACY : DIST;
+  let file = normalize(join(root, pharmacy ? rel.slice("/pharmacy".length) : rel));
+  if (file !== root && !file.startsWith(root + sep)) return json(res, 403, { error: "forbidden" });
+  if (!pharmacy && existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
+  if (!existsSync(file) || statSync(file).isDirectory()) {
     // Real files that are missing must 404 (not return index.html), so model downloads fail loudly.
-    if (extname(rel)) return json(res, 404, { error: "not found" });
+    if (pharmacy || extname(rel)) return json(res, 404, { error: "not found" });
     file = join(DIST, "index.html");
   }
   if (!existsSync(file)) return json(res, 503, { error: "Not built yet: run npm run build -w @handsup/demo." });
   const st = statSync(file);
-  const ext = extname(file);
-  res.writeHead(200, {
+  const headers = {
     ...SECURITY_HEADERS,
-    "Content-Type": TYPES[ext] ?? "application/octet-stream",
-    "Content-Length": st.size,
+    "Content-Type": TYPES[extname(file)] ?? "application/octet-stream",
     "Cache-Control": cacheFor(pathname),
-  });
+    "Accept-Ranges": "bytes",
+  };
+  // Byte ranges: Safari (iPhone) only plays videos when the server answers range requests.
+  const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ""));
+  if (range && (range[1] || range[2])) {
+    let start = range[1] ? Number(range[1]) : Math.max(0, st.size - Number(range[2]));
+    let end = range[1] && range[2] ? Math.min(Number(range[2]), st.size - 1) : st.size - 1;
+    if (start >= st.size || start > end) {
+      res.writeHead(416, { ...SECURITY_HEADERS, "Content-Range": `bytes */${st.size}` });
+      return res.end();
+    }
+    res.writeHead(206, { ...headers, "Content-Range": `bytes ${start}-${end}/${st.size}`, "Content-Length": end - start + 1 });
+    if (req.method === "HEAD") return res.end();
+    return createReadStream(file, { start, end }).pipe(res);
+  }
+  res.writeHead(200, { ...headers, "Content-Length": st.size });
   if (req.method === "HEAD") return res.end();
   createReadStream(file).pipe(res);
 }

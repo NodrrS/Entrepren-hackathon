@@ -154,3 +154,33 @@ describe("POST /api/tts voices", () => {
     expect(voices()).toHaveLength(4); // nothing else reached the voice service
   });
 });
+
+describe("static files: /pharmacy/ data and byte ranges", () => {
+  const cleanup: Array<() => void> = [];
+  afterEach(() => { while (cleanup.length) cleanup.pop()!(); });
+
+  it("serves the DGS data read-only, answers ranges, and never leaves the folder", async () => {
+    const demo = await startDemo({});
+    cleanup.push(() => demo.proc.kill());
+    const json = await fetch(`${demo.base}/pharmacy/dgs/dgs.json`);
+    expect(json.status).toBe(200);
+    expect(json.headers.get("content-type")).toContain("application/json");
+
+    const full = await fetch(`${demo.base}/pharmacy/dgs/HALLO.mp4`);
+    expect(full.status).toBe(200);
+    expect(full.headers.get("content-type")).toBe("video/mp4");
+    expect(full.headers.get("accept-ranges")).toBe("bytes");
+    const size = Number(full.headers.get("content-length"));
+    await full.arrayBuffer();
+
+    const part = await fetch(`${demo.base}/pharmacy/dgs/HALLO.mp4`, { headers: { Range: "bytes=10-19" } });
+    expect(part.status).toBe(206);
+    expect(part.headers.get("content-range")).toBe(`bytes 10-19/${size}`);
+    expect((await part.arrayBuffer()).byteLength).toBe(10);
+    expect((await fetch(`${demo.base}/pharmacy/dgs/HALLO.mp4`, { headers: { Range: `bytes=${size}-` } })).status).toBe(416);
+
+    for (const p of ["/pharmacy/%2e%2e/%2e%2e/demo/package.json", "/pharmacy/..%2f..%2fdemo%2fpackage.json", "/pharmacy/dgs/", "/pharmacy/nope.json"]) {
+      expect([403, 404], p).toContain((await fetch(`${demo.base}${p}`)).status); // refused or not found: never served
+    }
+  });
+});
