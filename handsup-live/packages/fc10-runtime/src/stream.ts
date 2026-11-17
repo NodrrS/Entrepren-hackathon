@@ -145,8 +145,12 @@ export class Fc10Stream {
 
   /** Resolves when every queued chunk has been processed (tests, demo end). */
   async idle(): Promise<void> {
-    while (this.running || this.queue.length) await new Promise((r) => setTimeout(r, 1));
+    // Event-driven (no timer polling): background tabs throttle timers to once a second or slower.
+    if (!this.running && !this.queue.length) return;
+    await new Promise<void>((resolve) => this.idleWaiters.push(resolve));
   }
+
+  private readonly idleWaiters: (() => void)[] = [];
 
   private async drain(): Promise<void> {
     if (this.running) return;
@@ -167,6 +171,7 @@ export class Fc10Stream {
       }
     } finally {
       this.running = false;
+      if (!this.queue.length) for (const w of this.idleWaiters.splice(0)) w();
     }
   }
 

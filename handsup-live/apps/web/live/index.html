@@ -36,11 +36,24 @@
 
       <section id="status" class="status" role="status" aria-live="polite">Loading the models…</section>
 
+      <section id="openin" class="panel openin" hidden>
+        <p id="openin-text"><strong>This browser cannot use the camera.</strong> Your QR scanner opened the page in its own mini browser. Open it in Chrome or Safari:</p>
+        <p class="openin-url" id="openin-url">https://live.handsupai.com</p>
+        <div class="openin-actions">
+          <button id="copy-link" type="button" class="primary">Copy link</button>
+          <a id="open-chrome" class="btn-link" href="#" hidden>Open in Chrome</a>
+        </div>
+        <p class="detail">Then paste it into the address bar. Or press <strong>Demo clip</strong> below to see the model without a camera.</p>
+      </section>
+
       <div id="stage" class="stage" data-mirrored="true">
-        <video id="video" playsinline muted></video>
+        <video id="video" playsinline webkit-playsinline muted autoplay></video>
         <canvas id="overlay"></canvas>
         <div id="placeholder" class="placeholder">
-          <p>Press <strong>Start</strong> to use your camera, or <strong>Demo clip</strong> to see the model on a recorded skeleton.</p>
+          <div>
+            <button id="start-big" type="button" class="primary big">▶ Start camera</button>
+            <p>Tap to turn on your camera, then allow it. Or try <strong>Demo clip</strong> below.</p>
+          </div>
         </div>
         <div class="live-caption" aria-hidden="true">
           <p id="cap-de" class="cap-de"></p>
@@ -49,9 +62,9 @@
       </div>
 
       <div class="controls">
-        <button id="start" type="button" class="primary" disabled>Start</button>
+        <button id="start" type="button" class="primary">Start</button>
         <button id="flip" type="button" title="Switch between the front and the back camera">Flip camera</button>
-        <button id="demo" type="button" disabled>Demo clip</button>
+        <button id="demo" type="button">Demo clip</button>
         <label class="toggle"><input id="landmarks" type="checkbox" checked /> Skeleton</label>
       </div>
 
@@ -73,6 +86,10 @@
         <div><dt>Model step</dt><dd id="m-step">–</dd></div>
         <div><dt>Engine</dt><dd id="m-engine">–</dd></div>
       </dl>
+      <details class="diag" id="diag-box">
+        <summary>Diagnostics (for help)</summary>
+        <pre id="diag"></pre>
+      </details>
       <p class="fineprint">Delay: from the last frame of each 0.32 s chunk to its result, on this device. Signs are read in chunks of 8 frames at 25 frames a second.</p>
     </main>
 

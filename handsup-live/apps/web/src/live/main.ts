@@ -22,6 +22,7 @@ import { FpsMeter } from "../fps";
 import { bindCameraLifecycle } from "../lifecycle";
 import { drawSkeleton } from "../overlay";
 import { Captions, englishText, germanText } from "./captions";
+import { cameraErrorHelp, cameraProblem, chromeIntentUrl, isAndroid } from "./camera-support";
 import { huFrameFromRaw, parseDemoClips, type DemoClip, type DemoClipFile } from "./demo";
 
 const guard = installNetworkGuard(window);
@@ -40,6 +41,12 @@ const ui = {
   capDe: $("cap-de"),
   capEn: $("cap-en"),
   start: $<HTMLButtonElement>("start"),
+  startBig: $<HTMLButtonElement>("start-big"),
+  openin: $("openin"),
+  openinText: $("openin-text"),
+  openinUrl: $("openin-url"),
+  copyLink: $<HTMLButtonElement>("copy-link"),
+  openChrome: $<HTMLAnchorElement>("open-chrome"),
   flip: $<HTMLButtonElement>("flip"),
   demo: $<HTMLButtonElement>("demo"),
   landmarks: $<HTMLInputElement>("landmarks"),
@@ -70,7 +77,7 @@ const sourceOptions = {
   modelUrl: mpAssets.models["holistic_landmarker.task"].path,
   modelSha256: mpAssets.models["holistic_landmarker.task"].sha256,
   // Let the browser cache the 13.7 MB .task (the source asks for no-store by default); the hash is still checked.
-  fetchFn: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, cache: "default" }),
+  fetchFn: (input: RequestInfo | URL, init?: RequestInit) => countedFetch(String(input), { ...init, cache: "default" }),
   // Read at every start(), so "Flip camera" takes effect on the next start.
   get constraints(): MediaStreamConstraints {
     return {
@@ -99,9 +106,40 @@ let runner: OrtRunner | null = null;
 let stream: Fc10Stream | null = null;
 let label: (id: number) => GlossLabel = (id) => ({ id, gloss: String(id), english: null, hidden: false });
 
+// ---------------------------------------------------------------- download progress (the 2 big model files)
+const BIG_BYTES = 13_683_609 + 23_594_959; // holistic_landmarker.task + fc10_step.onnx
+let loadedBytes = 0;
+let ready = false;
+let pendingStart = false;
+function progressText(): string {
+  return `Downloading the models: ${Math.min(99, Math.round((loadedBytes / BIG_BYTES) * 100))} % of ${Math.round(BIG_BYTES / 1e6)} MB (once; cached after).`;
+}
+async function countedFetch(url: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(url, init);
+  if (!res.ok || !res.body) return res;
+  const reader = res.body.getReader();
+  const parts: Uint8Array[] = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parts.push(value);
+    n += value.length;
+    loadedBytes += value.length;
+    if (!ready && mode === "idle") setStatus(pendingStart ? `Camera starts when the models are loaded. ${progressText()}` : pendingDemo ? `The demo starts when the sign model is loaded. ${progressText()}` : progressText());
+  }
+  const all = new Uint8Array(n);
+  let o = 0;
+  for (const p of parts) {
+    all.set(p, o);
+    o += p.length;
+  }
+  return new Response(all, { status: res.status, statusText: res.statusText, headers: res.headers });
+}
+
 async function fetchVerified(path: string, sha256: string): Promise<Uint8Array> {
   // Normal HTTP caching: the files are public, and the SHA-256 check below still runs on every load.
-  const res = await fetch(path, { credentials: "same-origin" });
+  const res = await countedFetch(path, { credentials: "same-origin" });
   const type = res.headers.get("content-type") ?? "";
   if (!res.ok || type.includes("text/html")) throw new Error(`${path} is missing on this server.`);
   const bytes = new Uint8Array(await res.arrayBuffer());
@@ -216,6 +254,7 @@ function clearOverlay(): void {
 }
 
 function onFrame(frame: LandmarkFrame): void {
+  diag.frames++;
   if (mode !== "camera" || !stream) return;
   if (ui.canvas.width !== frame.image.width || ui.canvas.height !== frame.image.height) {
     ui.canvas.width = frame.image.width;
@@ -277,10 +316,13 @@ function updateEngine(): void {
 
 function showError(error: EngineError | Error): void {
   const code = (error as EngineError).code;
-  if (code === "camera-denied") {
-    setStatus("The camera is blocked for this page. Allow it in the browser settings, or press Demo clip.", "warn");
-  } else if (code === "camera-unavailable") {
-    setStatus("No camera could be opened. Press Demo clip to see the model on a recorded skeleton.", "warn");
+  diag.lastError = `${code ?? (error as Error).name}: ${error.message}`;
+  if (code === "camera-denied" || code === "camera-unavailable") {
+    // The source's message is "Camera: <ErrorName>: <text>"; show the exact name.
+    const m = /Camera:\s*([A-Za-z]+Error)/.exec(error.message);
+    const name = m?.[1] ?? (typeof navigator.mediaDevices?.getUserMedia === "function" ? "UnknownError" : "no mediaDevices");
+    if (name === "no mediaDevices" || name === "TypeError") showOpenIn("no-media-devices");
+    setStatus(`${cameraErrorHelp(name, navigator.userAgent)} [${name}] The Demo clip works without a camera.`, "warn");
   } else {
     setStatus(`Something went wrong: ${error.message}`, "error");
   }
@@ -289,7 +331,34 @@ function showError(error: EngineError | Error): void {
 }
 
 async function startCamera(): Promise<void> {
-  if (!stream) return;
+  pendingDemo = false;
+  const problem = cameraProblemNow();
+  if (problem) {
+    showOpenIn(problem);
+    return;
+  }
+  if (!ready || !stream) {
+    // iOS Safari: ask for the camera now, inside the tap (a later, gesture-less request can be refused
+    // or never prompt). The permission then holds for this page, and the real start follows when ready.
+    if (!pendingStart) {
+      pendingStart = true;
+      setStatus(`Allow the camera; it starts when the models are loaded. ${progressText()}`, "info");
+      try {
+        const probe = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facing } } });
+        for (const t of probe.getTracks()) t.stop();
+        diag.permission = "granted";
+        if (!ready) setStatus(`Camera allowed. It starts when the models are loaded. ${progressText()}`, "info");
+      } catch (err) {
+        pendingStart = false;
+        const name = (err as { name?: string }).name ?? "UnknownError";
+        diag.permission = name === "NotAllowedError" ? "denied" : "failed";
+        diag.lastError = `${name}: ${(err as Error).message ?? ""}`;
+        setStatus(`${cameraErrorHelp(name, navigator.userAgent)} [${name}] The Demo clip works without a camera.`, "warn");
+      }
+    }
+    return;
+  }
+  pendingStart = false;
   stopDemo();
   ui.start.disabled = true;
   ui.reference.hidden = true;
@@ -306,6 +375,7 @@ async function startCamera(): Promise<void> {
   ui.stage.dataset["mirrored"] = String(facing === "user");
   try {
     await source.start();
+    diag.permission = "granted";
     startedAt = performance.now();
     lastFpsAt = 0;
     if (mode === "camera") setStatus("Live. Sign to the camera; captions appear below the video.", "ok");
@@ -329,6 +399,7 @@ function stopCamera(): void {
 let demoClips: DemoClip[] | null = null;
 let demoIndex = 0;
 let demoTimer: number | null = null;
+let demoRun = 0;
 
 async function loadDemo(): Promise<DemoClip[]> {
   if (demoClips) return demoClips;
@@ -338,8 +409,15 @@ async function loadDemo(): Promise<DemoClip[]> {
   return demoClips;
 }
 
+let pendingDemo = false;
 async function startDemo(): Promise<void> {
-  if (!stream) return;
+  pendingStart = false; // the demo wins over a queued camera start
+  if (!stream) {
+    pendingDemo = true;
+    setStatus(`The demo starts when the sign model is loaded. ${progressText()}`, "info");
+    return;
+  }
+  pendingDemo = false;
   if (mode === "camera") stopCamera();
   let clips: DemoClip[];
   try {
@@ -362,9 +440,20 @@ async function startDemo(): Promise<void> {
   setStatus("Demo: a recorded weather forecast skeleton (landmarks only, no video) runs through the same model.", "ok");
   let i = 0;
   const t0 = performance.now();
+  const runId = ++demoRun;
+  // Watchdog: never hang. A clip lasts frames/25 s; after that plus 15 s, show what is there.
+  const deadline = window.setTimeout(() => {
+    if (mode === "demo" && runId === demoRun) {
+      stream?.finalize();
+      setMode("idle");
+      clearOverlay();
+      setStatus("Demo ended early: this device or tab was too slow. Press Demo clip to try again.", "warn");
+    }
+  }, (clip.frames.length / FC10.fps) * 1000 + 15000);
   const tick = () => {
-    if (mode !== "demo" || !stream) return;
-    const due = Math.floor((performance.now() - t0) / (1000 / FC10.fps));
+    if (mode !== "demo" || !stream || runId !== demoRun) return;
+    // A hidden tab throttles timers: feed the rest at once instead of in real time.
+    const due = document.visibilityState === "hidden" ? clip.frames.length : Math.floor((performance.now() - t0) / (1000 / FC10.fps));
     while (i <= due && i < clip.frames.length) {
       const f = clip.frames[i]!;
       stream.pushResampled(t0 + i * 40, f);
@@ -376,6 +465,8 @@ async function startDemo(): Promise<void> {
     }
     if (i >= clip.frames.length) {
       void stream.idle().then(() => {
+        clearTimeout(deadline);
+        if (runId !== demoRun || mode !== "demo") return;
         stream?.finalize();
         ui.reference.hidden = false;
         ui.reference.textContent = "";
@@ -392,10 +483,12 @@ async function startDemo(): Promise<void> {
     }
     demoTimer = window.setTimeout(tick, 20);
   };
-  demoTimer = window.setTimeout(tick, 20);
+  tick(); // start now, not after a (possibly throttled) timer
 }
 
 function stopDemo(): void {
+  pendingDemo = false;
+  demoRun++;
   if (demoTimer !== null) clearTimeout(demoTimer);
   demoTimer = null;
   if (mode === "demo") {
@@ -409,6 +502,49 @@ function stopDemo(): void {
 ui.start.addEventListener("click", () => {
   if (mode === "camera") stopCamera();
   else void startCamera();
+});
+ui.startBig.addEventListener("click", () => void startCamera());
+
+// ---------------------------------------------------------------- in-app browsers (QR scanner mini browsers)
+function cameraProblemNow() {
+  return cameraProblem({
+    userAgent: navigator.userAgent,
+    isSecureContext: window.isSecureContext,
+    hasGetUserMedia: typeof navigator.mediaDevices?.getUserMedia === "function",
+  });
+}
+function showOpenIn(problem: NonNullable<ReturnType<typeof cameraProblemNow>>): void {
+  const url = location.origin + location.pathname;
+  ui.openinUrl.textContent = url;
+  ui.openinText.textContent = "";
+  const strong = document.createElement("strong");
+  strong.textContent = problem === "insecure" ? "The camera needs a secure (https) page. " : "This browser cannot use the camera. ";
+  ui.openinText.append(
+    strong,
+    problem === "in-app-browser"
+      ? "Your QR scanner opened the page in its own mini browser. Open it in Chrome or Safari:"
+      : "Open the page in Chrome or Safari:",
+  );
+  if (isAndroid(navigator.userAgent)) {
+    ui.openChrome.href = chromeIntentUrl(url);
+    ui.openChrome.hidden = false;
+  }
+  ui.openin.hidden = false;
+  setStatus(`No camera in this browser [${problem === "in-app-browser" ? "in-app browser" : problem === "insecure" ? "not https" : "no mediaDevices"}]. Open the page in Chrome or Safari, or press Demo clip.`, "warn");
+}
+ui.copyLink.addEventListener("click", () => {
+  const url = ui.openinUrl.textContent ?? location.href;
+  const done = () => (ui.copyLink.textContent = "Copied");
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done, () => selectUrl());
+  else selectUrl();
+  function selectUrl() {
+    const r = document.createRange();
+    r.selectNodeContents(ui.openinUrl);
+    const sel = getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(r);
+    ui.copyLink.textContent = "Selected: copy it";
+  }
 });
 ui.flip.addEventListener("click", () => {
   facing = facing === "user" ? "environment" : "user";
@@ -449,17 +585,45 @@ function hasWasmSimd(): boolean {
   }
 }
 
+// ---------------------------------------------------------------- on-screen diagnostics (no data leaves the device)
+const diag = { lastError: "none", permission: "not asked", frames: 0 };
+const diagEl = $("diag");
+function updateDiag(): void {
+  const v = ui.video;
+  const track = (v.srcObject as MediaStream | null)?.getVideoTracks()[0];
+  const set = track?.getSettings();
+  diagEl.textContent = [
+    `browser: ${navigator.userAgent}`,
+    `secure context: ${window.isSecureContext}; mediaDevices: ${typeof navigator.mediaDevices !== "undefined"}; getUserMedia: ${typeof navigator.mediaDevices?.getUserMedia === "function"}`,
+    `problem check: ${cameraProblemNow() ?? "none"}; WebAssembly SIMD: ${hasWasmSimd()}`,
+    `mode: ${mode}; models ready: ${ready}; downloaded: ${Math.round(loadedBytes / 1e6)} MB; queued start: ${pendingStart}`,
+    `camera permission: ${diag.permission}; MediaPipe: ${source.state} (${source.delegate ?? "?"}); sign model: ${runner ? "loaded" : "not loaded"}`,
+    `video: readyState ${v.readyState}, ${v.videoWidth}x${v.videoHeight}, paused ${v.paused}; track: ${track ? `${track.readyState}${set ? `, ${set.width}x${set.height} @ ${Math.round(set.frameRate ?? 0)} fps, ${set.facingMode ?? "?"}` : ""}` : "none"}`,
+    `landmark frames: ${diag.frames}; last error: ${diag.lastError}`,
+  ].join("\n");
+}
+setInterval(() => {
+  if ((document.getElementById("diag-box") as HTMLDetailsElement).open) updateDiag();
+}, 500);
+document.getElementById("diag-box")!.addEventListener("toggle", updateDiag);
+
 render();
+ui.start.disabled = false; // tapping before the models are ready queues the start
+{
+  const problem = cameraProblemNow();
+  if (problem) showOpenIn(problem);
+}
 if (!hasWasmSimd()) {
   setStatus("This browser is too old for the sign model (it needs WebAssembly SIMD: iPhone with iOS 16.4 or newer, or a current Chrome, Firefox or Edge). Please update the browser.", "error");
 } else {
   // Load both independently: the demo needs only the sign model, the camera needs both.
   void Promise.allSettled([source.load(), loadModel()]).then(([mp, model]) => {
     updateEngine();
-    if (model.status === "fulfilled") ui.demo.disabled = false;
+    if (model.status === "fulfilled" && pendingDemo) void startDemo();
     if (mp.status === "fulfilled" && model.status === "fulfilled") {
-      ui.start.disabled = false;
-      setStatus("Ready. Press Start and allow the camera, or try the demo clip.", "ok");
+      ready = true;
+      if (pendingStart) void startCamera();
+      else if (!cameraProblemNow() && diag.lastError === "none") setStatus("Ready. Tap Start camera and allow the camera, or try the demo clip.", "ok");
     } else {
       const err = (mp.status === "rejected" ? mp.reason : (model as PromiseRejectedResult).reason) as Error;
       setStatus(`Could not load ${mp.status === "rejected" ? "the body and hand tracker" : "the sign model"}: ${err.message}${model.status === "fulfilled" ? " The demo clip still works." : ""}`, "error");
