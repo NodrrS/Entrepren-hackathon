@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Link2, Loader2, Play, Square, Upload, Volume2, VolumeX } from "lucide-react";
+import { Camera, Link2, Loader2, Square, Upload, Volume2, VolumeX } from "lucide-react";
 import { useRecognizer, type CaptionLine, type Crop, type Lang } from "@/lib/recognizer";
 import { checkHealth } from "@/lib/speech";
 import { rewrite } from "@/lib/rewrite";
@@ -19,6 +19,8 @@ const QUICK: Record<Lang, string[]> = {
 };
 
 // The three recorded clips in demo-clips.json, in file order (glosses: see the file's `reference` lists).
+const SECTION = "text-[13px] font-semibold tracking-[0.06em] text-muted-foreground uppercase";
+
 const EXAMPLES = ["Tomorrow's date", "Forecast intro", "Night temperatures"];
 
 const CROP_LABELS: Array<[Crop, string]> = [
@@ -148,7 +150,7 @@ export function Demo() {
   const allUp = ready && voiceOk && llmOk;
 
   return (
-    <div className="flex min-h-dvh flex-col lg:h-dvh">
+    <div className="flex min-h-dvh flex-col">
       <header className="flex min-h-[72px] shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-b border-hairline px-4 py-3 sm:px-7">
         <Logo className="h-8 w-auto" />
         <span className="rounded-[14px] bg-secondary px-3 py-1.5 text-[15px] font-semibold">Research demo</span>
@@ -182,10 +184,10 @@ export function Demo() {
         </section>
       )}
 
-      <main className="flex min-h-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 sm:px-7 lg:grid lg:grid-cols-[minmax(0,640px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:pt-6 lg:pb-7">
-        <div className="flex min-h-0 flex-col gap-4">
+      <main className="flex flex-1 flex-col gap-6 px-4 pt-4 pb-8 sm:px-7 lg:grid lg:grid-cols-[minmax(0,640px)_minmax(0,1fr)] lg:pt-6 lg:pb-7">
+        <div className="flex min-h-0 flex-col gap-5">
           <Stage
-            className="flex-1 lg:min-h-[20rem]"
+            className="flex-1 lg:min-h-[38rem]"
             videoRef={r.videoRef}
             canvasRef={r.canvasRef}
             running={running}
@@ -202,46 +204,57 @@ export function Demo() {
             caption={<Captions line={newest} sentence={newest ? sentences[newest.id] : undefined} lang={lang} />}
           />
 
-          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Examples">
-            <span className="mr-1 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">Examples</span>
-            {EXAMPLES.map((label, i) => (
-              <Pill key={label} disabled={!ready} aria-pressed={r.mode === "demo" && example === i}
-                onClick={() => { setExample(i); run(() => r.startDemo(i)); }}>
-                <Play className="h-4 w-4" />{i + 1} · {label}
-              </Pill>
-            ))}
-          </div>
+          <section aria-labelledby="examples-h" className="space-y-2">
+            <h2 id="examples-h" className={SECTION}>Examples</h2>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {EXAMPLES.map((label, i) => (
+                <Pill key={label} disabled={!ready} aria-pressed={r.mode === "demo" && example === i} className="justify-start gap-3 px-3"
+                  onClick={() => { setExample(i); run(() => r.startDemo(i)); }}>
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold" aria-hidden="true">{i + 1}</span>
+                  <span className="leading-tight text-left">{label}</span>
+                </Pill>
+              ))}
+            </div>
+          </section>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Pill disabled={!ready} onClick={() => fileRef.current?.click()}><Upload className="h-4 w-4" />Upload clip</Pill>
-            <input ref={fileRef} type="file" accept="video/*" className="sr-only" tabIndex={-1} aria-label="Upload a video clip" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
-            <label className="inline-flex items-center gap-2 text-[15px] text-muted-foreground">
-              <span>Signer</span>
-              <select value={crop} onChange={(e) => setCrop(e.target.value as Crop)} aria-label="Signer position in an uploaded video"
-                className="h-12 rounded-[14px] border border-border bg-card px-3 text-[15px] font-medium text-foreground">
-                {CROP_LABELS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-              </select>
-            </label>
-            <LangToggle value={lang} onChange={setLang} label="Spoken language" />
-            <Switch checked={speakOn} onChange={setSpeakOn} label="Speak captions" />
-            <button type="button" onClick={() => setMuted(!muted)} aria-pressed={muted} aria-label={muted ? "Unmute" : "Mute"}
-              className="inline-flex h-12 w-12 items-center justify-center rounded-[14px] border border-border bg-card hover:bg-accent">
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </button>
-            <Equalizer active={playing && !muted} />
-          </div>
+          <section aria-labelledby="own-h" className="space-y-2">
+            <h2 id="own-h" className={SECTION}>Your own video</h2>
+            {linksOk && (
+              <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); void translateLink(); }}>
+                <label htmlFor="video-link" className="sr-only">YouTube link to translate</label>
+                <input id="video-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a YouTube link (up to 3 minutes)…" autoComplete="off"
+                  className="h-12 min-w-0 flex-1 rounded-[14px] border border-border bg-card px-4 text-base placeholder:text-muted-foreground" />
+                <Pill type="submit" disabled={!ready || fetching || !link.trim()}>
+                  {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                  {fetching ? "Getting…" : "Translate"}
+                </Pill>
+              </form>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Pill disabled={!ready} onClick={() => fileRef.current?.click()}><Upload className="h-4 w-4" />Upload a video file</Pill>
+              <input ref={fileRef} type="file" accept="video/*" className="sr-only" tabIndex={-1} aria-label="Upload a video clip" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
+              <label className="ml-auto inline-flex items-center gap-2 text-[15px] text-muted-foreground">
+                <span>Signer is in</span>
+                <select value={crop} onChange={(e) => setCrop(e.target.value as Crop)} aria-label="Signer position in a video"
+                  className="h-12 rounded-[14px] border border-border bg-card px-3 text-[15px] font-medium text-foreground">
+                  {CROP_LABELS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                </select>
+              </label>
+            </div>
+          </section>
 
-          {linksOk && (
-            <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); void translateLink(); }}>
-              <label htmlFor="video-link" className="sr-only">YouTube link to translate</label>
-              <input id="video-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a YouTube link (up to 3 minutes)…" autoComplete="off"
-                className="h-12 min-w-0 flex-1 rounded-[14px] border border-border bg-card px-4 text-base placeholder:text-muted-foreground" />
-              <Pill type="submit" disabled={!ready || fetching || !link.trim()}>
-                {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                {fetching ? "Getting the video…" : "Translate video"}
-              </Pill>
-            </form>
-          )}
+          <section aria-labelledby="speech-h" className="space-y-1">
+            <h2 id="speech-h" className={SECTION}>Speech</h2>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <LangToggle value={lang} onChange={setLang} label="Spoken language" />
+              <Switch checked={speakOn} onChange={setSpeakOn} label="Speak captions" />
+              <button type="button" onClick={() => setMuted(!muted)} aria-pressed={muted} aria-label={muted ? "Unmute" : "Mute"}
+                className="inline-flex h-12 w-12 items-center justify-center rounded-[14px] border border-border bg-card hover:bg-accent">
+                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+              <Equalizer active={playing && !muted} />
+            </div>
+          </section>
 
           <div aria-live="polite" className="space-y-2">
             <p className={cn("min-h-5 text-sm", err ? "text-destructive" : "text-muted-foreground")}>{err ?? r.statusText}</p>
@@ -251,8 +264,10 @@ export function Demo() {
           </div>
         </div>
 
+        {/* On wide screens the conversation fills exactly the height of the left column and scrolls inside. */}
+        <div className="relative lg:min-h-0">
         <Conversation
-          className="lg:min-h-0"
+          className="lg:absolute lg:inset-0"
           bubbles={bubbles}
           quick={QUICK[lang]}
           onSpeak={speakReply}
@@ -264,6 +279,7 @@ export function Demo() {
             )
           }
         />
+        </div>
       </main>
     </div>
   );
