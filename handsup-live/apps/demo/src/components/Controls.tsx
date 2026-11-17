@@ -67,3 +67,18 @@ export function Equalizer({ active }: { active: boolean }) {
     </span>
   );
 }
+
+/** Live camera or the scripted example (Mock mode), as two clear options. */
+export function SourceToggle({ useMock, onChange, className }: { useMock: boolean; onChange: (mock: boolean) => void; className?: string | undefined }) {
+  const opts: Array<[boolean, string]> = [[false, "Live camera"], [true, "Scripted example"]];
+  return (
+    <div role="radiogroup" aria-label="What to translate" className={cn("grid grid-cols-2 rounded-full border border-border bg-secondary p-1", className)}>
+      {opts.map(([v, t]) => (
+        <button key={t} type="button" role="radio" aria-checked={useMock === v} onClick={() => onChange(v)}
+          className={cn("h-11 rounded-full px-4 text-[15px] font-semibold transition-colors", useMock === v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}>
+          {t}
+        </button>
+      ))}
+    </div>
+  );
+}

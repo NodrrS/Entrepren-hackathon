@@ -23,7 +23,7 @@ If the LLM is unreachable or `LLM_API_KEY` is not set, the page falls back to th
 | `/counter` | The business's tablet | 4 Staff view (stage, caption card, conversation, quick replies, hold to speak, Show to customer) → 5 Customer view (big tiles, Sign your answer) |
 | `/` | Phones get `/signer`, bigger screens `/counter` | |
 
-**Mock mode** (on by default) plays a scripted pharmacy dialogue (HALLO MEDIKAMENT KOPF SCHMERZ → "Hello. I need medicine
+**Live camera** is the default; **Scripted example** (Mock mode) plays a scripted pharmacy dialogue (HALLO MEDIKAMENT KOPF SCHMERZ → "Hello. I need medicine
 for a headache.", then NEIN → "No.") with no camera, model or LLM, so the whole flow works on stage. Off, the camera
 and the real model run (weather vocabulary).
 

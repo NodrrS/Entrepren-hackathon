@@ -27,10 +27,12 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
             <span className="rounded-xl bg-ok-soft px-2.5 py-1 text-[13px] font-semibold text-ok-ink tabular-nums">{(sentence.ms / 1000).toFixed(2)} s</span>
           )}
         </div>
-        {glosses.length > 0 && <p className="m-0 text-[13px] tracking-[0.08em] text-muted-foreground [font-variant:small-caps]">{glosses.join(" · ").toLowerCase()}</p>}
+        {glosses.length > 0 && <p className="m-0 truncate text-[13px] tracking-[0.08em] text-muted-foreground [font-variant:small-caps]">{glosses.join(" · ").toLowerCase()}</p>}
         <div className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
           {typeof sentence === "object" ? (
-            <p key={`${newest?.id}-${sentence.lang}`} className="m-0 animate-word-in font-display text-[38px] leading-[1.08] font-bold break-words">{sentence.text}</p>
+            // Long sentences get a smaller size so they fit the staff half without scrolling.
+            <p key={`${newest?.id}-${sentence.lang}`} className="m-0 animate-word-in font-display leading-[1.08] font-bold break-words"
+              style={{ fontSize: sentence.text.length > 70 ? 22 : sentence.text.length > 45 ? 26 : 38 }}>{sentence.text}</p>
           ) : sentence === "pending" ? (
             <p className="m-0 font-display text-[38px] leading-[1.08] font-bold text-muted-foreground" role="status"><span className="sr-only">Writing the sentence</span><span aria-hidden="true">…</span></p>
           ) : newest?.final && newest ? (
@@ -40,9 +42,9 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
           )}
         </div>
         {problem && <p className="m-0 text-sm font-medium text-destructive" role="alert">{problem}</p>}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto">
           {QUICK_PHONE[s.lang].map((q) => (
-            <button key={q} type="button" onClick={() => { setProblem(null); onReply(q); }} className="min-h-11 rounded-full bg-panel px-4 text-[15px] font-medium">{q}</button>
+            <button key={q} type="button" onClick={() => { setProblem(null); onReply(q); }} className="min-h-11 shrink-0 rounded-full bg-panel px-4 text-[15px] font-medium whitespace-nowrap">{q}</button>
           ))}
         </div>
         <HoldToSpeak lang={s.lang} onText={(t) => { setProblem(null); onReply(t); }} onProblem={setProblem} className="h-14 text-lg">Hold to speak your answer</HoldToSpeak>

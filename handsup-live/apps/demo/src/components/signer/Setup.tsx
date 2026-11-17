@@ -1,6 +1,7 @@
 import { Settings, Video } from "lucide-react";
 import type { Session } from "@/lib/useSession";
 import { Logo } from "../Logo";
+import { SourceToggle } from "../Controls";
 import { cn } from "@/lib/utils";
 
 const STEPS = ["Front camera faces you", "Sign. Words appear for the staff", "Read the answer, your way"];
@@ -21,10 +22,10 @@ function Illustration() {
 }
 
 /** Screen 1 of the signer flow: how to stand the phone, reply style, language, Start. */
-export function Setup({ s, onStart, onSettings, starting }: { s: Session; onStart: () => void; onSettings: () => void; starting: boolean }) {
+export function Setup({ s, onStart, onExample, onSettings, starting }: { s: Session; onStart: () => void; onExample: () => void; onSettings: () => void; starting: boolean }) {
   const loading = !s.ready;
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col gap-4 px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col gap-3 px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <header className="flex items-center justify-between">
         <Logo className="h-8 w-auto" />
         <button type="button" onClick={onSettings} aria-label="Settings" className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card">
@@ -32,47 +33,51 @@ export function Setup({ s, onStart, onSettings, starting }: { s: Session; onStar
         </button>
       </header>
 
-      <div className="h-[clamp(120px,22dvh,200px)] shrink-0 rounded-3xl bg-tile p-2"><Illustration /></div>
+      <div className="h-[clamp(80px,14dvh,200px)] shrink-0 rounded-3xl bg-tile p-2"><Illustration /></div>
 
       <div className="space-y-2">
-        <h1 className="font-display text-[32px] leading-[1.1] font-bold">Stand your phone on the counter</h1>
+        <h1 className="font-display text-[clamp(26px,3.6dvh,32px)] leading-[1.1] font-bold">Stand your phone on the counter</h1>
         <p className="text-[17px] leading-snug text-body-2">The staff don&apos;t need an app. They read the top half and speak their answer.</p>
       </div>
 
-      <ol className="space-y-2.5">
+      <ol className="space-y-2">
         {STEPS.map((t, i) => (
           <li key={t} className="flex items-center gap-4">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground font-bold text-background" aria-hidden="true">{i + 1}</span>
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground font-bold text-background" aria-hidden="true">{i + 1}</span>
             <span className="text-[17px]">{t}</span>
           </li>
         ))}
       </ol>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2">
         <button type="button" onClick={() => s.setPictures(!s.pictures)} aria-label={`Reply style: ${s.pictures ? "pictures and big text" : "big text only"}. Press to change.`}
-          className="min-h-11 rounded-full border border-border bg-card px-4 text-sm font-medium">
-          Reply: {s.pictures ? "pictures + big text" : "big text only"}
+          className="min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-[13px] font-medium whitespace-nowrap">
+          Reply: {s.pictures ? "pictures + text" : "big text"}
         </button>
         <button type="button" onClick={() => s.setLang(s.lang === "en" ? "de" : "en")} aria-label={`Language: DGS to ${s.lang === "en" ? "English" : "German"}. Press to change.`}
-          className="min-h-11 rounded-full border border-border bg-card px-4 text-sm font-medium">
+          className="min-h-11 flex-1 rounded-full border border-border bg-card px-3 text-[13px] font-medium whitespace-nowrap">
           DGS → {s.lang === "en" ? "English" : "Deutsch"}
         </button>
       </div>
 
       <div className="flex-1" />
 
-      {s.useMock && (
-        <p className="m-0 rounded-2xl bg-info-soft px-4 py-2 text-center text-[13px] font-medium text-info-ink">
-          Mock mode: a scripted example, no camera. Change it in settings.
-        </p>
-      )}
-      {!s.useMock && !loading && s.real.statusKind !== "ok" && s.real.statusKind !== "info" && <p className="text-center text-sm text-destructive">{s.real.statusText}</p>}
+      <SourceToggle useMock={s.useMock} onChange={s.setUseMock} />
+      <p className="m-0 -mt-1 text-center text-[13px] text-muted-foreground">
+        {s.useMock ? "A pharmacy conversation, no camera needed" : "Front camera · German weather-forecast signs"}
+      </p>
+      {!s.useMock && !loading && s.real.statusKind !== "ok" && s.real.statusKind !== "info" && <p className="m-0 text-center text-sm text-destructive">{s.real.statusText}</p>}
       <button type="button" onClick={onStart} disabled={loading || starting}
         className={cn("inline-flex h-16 w-full items-center justify-center gap-3 rounded-full bg-primary text-[22px] font-bold text-primary-foreground disabled:opacity-60")}>
         <Video className="h-6 w-6" aria-hidden="true" />
-        {loading ? "Loading the model…" : "Start"}
+        {loading ? `Loading the model… ${Math.round(s.real.progress * 100)}%` : s.useMock ? "Start example" : "Start camera"}
       </button>
-      <p className="text-center text-[13px] text-muted-foreground">Nothing is recorded or uploaded.</p>
+      {!s.useMock && (
+        <button type="button" onClick={onExample} disabled={loading || starting} className="-my-1 min-h-11 text-[15px] font-medium text-link underline disabled:opacity-50">
+          No camera? Play a recorded signer
+        </button>
+      )}
+      <p className="m-0 text-center text-[13px] text-muted-foreground">Nothing is recorded or uploaded.</p>
     </main>
   );
 }

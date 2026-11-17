@@ -27,7 +27,7 @@ function rewriteInput(line: CaptionLine, lang: Lang) {
 export function useSession() {
   const real = useRecognizer();
   const mock = useMockSigner();
-  const [useMock, setUseMockState] = useState(true); // Mock mode is on by default (PRODUCT-BRIEF.md)
+  const [useMock, setUseMockState] = useState(false); // live camera by default; the scripted example is one tap away
   const [lang, setLang] = useState<Lang>("en");
   const [speakOn, setSpeakOn] = useState(true);
   const [muted, setMuted] = useState(false);

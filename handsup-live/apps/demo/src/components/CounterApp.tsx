@@ -6,7 +6,7 @@ import type { Session } from "@/lib/useSession";
 import { fetchVideo } from "@/lib/videoLink";
 import { cn } from "@/lib/utils";
 import { Captions } from "./Captions";
-import { Equalizer, LangToggle, Pill, Switch } from "./Controls";
+import { Equalizer, LangToggle, Pill, SourceToggle, Switch } from "./Controls";
 import { Conversation, type Bubble } from "./Conversation";
 import { CustomerView } from "./CustomerView";
 import { HoldToSpeak } from "./HoldToSpeak";
@@ -136,12 +136,12 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
                 <Pill variant="primary" onClick={s.stop}><Square className="h-4 w-4" />Stop</Pill>
               ) : (
                 <Pill variant="primary" disabled={!s.ready} onClick={() => run(() => s.start())}>
-                  <Video className="h-4 w-4" />{s.useMock ? "Start scripted example" : "Start camera"}
+                  <Video className="h-4 w-4" />{!s.ready ? `Loading the model… ${Math.round(r.progress * 100)}%` : s.useMock ? "Start example" : "Start camera"}
                 </Pill>
               )}
-              <Switch checked={s.useMock} onChange={s.setUseMock} label="Mock mode" />
+              <SourceToggle useMock={s.useMock} onChange={s.setUseMock} className="w-full max-w-sm" />
             </div>
-            {s.useMock && <p className="m-0 text-sm text-muted-foreground">Mock mode plays a short pharmacy conversation without a camera. Switch it off to use the camera, the examples or your own video.</p>}
+            {s.useMock && <p className="m-0 text-sm text-muted-foreground">The scripted example plays a short pharmacy conversation without a camera. Choose Live camera to sign yourself, play the recorded examples or use your own video.</p>}
           </section>
 
           {!s.useMock && (
