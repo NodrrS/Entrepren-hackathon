@@ -66,6 +66,13 @@
   --color-chart-5: var(--chart-5);
   --color-coral: var(--coral);
   --color-stage: var(--stage);
+  --color-stage-chip: var(--stage-chip);
+  --color-hairline: var(--hairline);
+  --color-link: var(--link);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-ink: var(--ok-ink);
+  --color-info-soft: var(--info-soft);
+  --color-info-ink: var(--info-ink);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -80,11 +87,12 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Hands Up brand (PRODUCT-BRIEF.md, Design): orange #FF5A36 on white, near-black text. White text on the orange
-   fails contrast at small sizes, so text on orange is near-black. Light only; the camera stage stays dark. */
+/* Hands Up design: tokens taken from design/mockups/static/4-counter-staff.html (counter staff view).
+   Orange #FF5A36 with near-black text on it (white on orange fails contrast at small sizes). Light only;
+   the camera stage stays dark (#1B1B1B). */
 :root {
   --radius: 1.25rem;
-  --ink: oklch(0.17 0.01 260);
+  --ink: oklch(0.191 0 0); /* #141414 */
   --coral: oklch(0.684 0.207 33.9); /* #FF5A36 */
   --background: oklch(1 0 0);
   --foreground: var(--ink);
@@ -94,19 +102,26 @@
   --popover-foreground: var(--ink);
   --primary: var(--coral);
   --primary-foreground: var(--ink);
-  --secondary: oklch(0 0 0 / 5%);
+  --secondary: oklch(0.961 0 0); /* #F2F2F2 chips */
   --secondary-foreground: var(--ink);
-  --muted: oklch(0 0 0 / 4%);
-  --muted-foreground: oklch(0.42 0.01 260);
-  --accent: oklch(0 0 0 / 6%);
+  --muted: oklch(0.961 0 0);
+  --muted-foreground: oklch(0.482 0 0); /* #5E5E5E */
+  --accent: oklch(0.955 0 0); /* #F0F0F0 hover, grey bubbles */
   --accent-foreground: var(--ink);
   --destructive: oklch(0.52 0.2 25);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0 0 0 / 12%);
-  --input: oklch(0 0 0 / 16%);
+  --border: oklch(0.876 0 0); /* #D6D6D6 controls */
+  --hairline: oklch(0.943 0 0); /* #ECECEC header rule */
+  --input: oklch(0.876 0 0);
   --ring: var(--coral);
-  --stage: oklch(0.14 0.01 260);
+  --stage: oklch(0.222 0 0); /* #1B1B1B */
+  --stage-chip: oklch(0.301 0 0); /* #2E2E2E */
+  --link: oklch(0.529 0.167 34.4); /* #B83A1C */
   --ok: oklch(0.55 0.15 150);
+  --ok-soft: oklch(0.958 0.013 159.9); /* #EAF4EE latency badge */
+  --ok-ink: oklch(0.43 0.093 152.8); /* #1D5E36 */
+  --info-soft: oklch(0.954 0.016 262.8); /* #EAF0FB */
+  --info-ink: oklch(0.377 0.108 261); /* #1E3F7A */
   --warn: oklch(0.7 0.16 70);
   --chart-1: var(--coral); --chart-2: var(--ok); --chart-3: var(--warn); --chart-4: var(--ink); --chart-5: var(--muted-foreground);
   --sidebar: var(--card); --sidebar-foreground: var(--ink); --sidebar-primary: var(--coral); --sidebar-primary-foreground: var(--ink); --sidebar-accent: var(--accent); --sidebar-accent-foreground: var(--ink); --sidebar-border: var(--border); --sidebar-ring: var(--coral);
