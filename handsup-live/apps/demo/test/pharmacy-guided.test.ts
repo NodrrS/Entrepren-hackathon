@@ -46,15 +46,45 @@ describe("guided pharmacy rules on a small figure (scale and mirror free)", () =
     }
   }
 
-  it("Assistenz advances within about 1.5 s of visible, moving hands", () => {
+});
+
+/** Synthetic signer (shoulders at y 0.5, nose at 0.3); the right hand follows `hand(t)`; null = hands down/out of view. */
+function synth(n: number, hand: (i: number) => [number, number] | null): RawSeqFrame[] {
+  return Array.from({ length: n }, (_, i) => {
+    const p = new Float32Array(225);
+    p.set([0.5, 0.3, 0], 0);
+    p.set([0.6, 0.5, 0], 11 * 3);
+    p.set([0.4, 0.5, 0], 12 * 3);
+    const h = hand(i);
+    if (h) for (let j = 0; j < 21; j++) p.set([h[0] + 0.005 * (j % 5), h[1] - 0.01 * Math.floor(j / 4), 0], (54 + j) * 3);
+    return { points: p, present: [true, false, !!h, false] };
+  });
+}
+const wave = (i: number): [number, number] => [0.28 + 0.06 * Math.sin(i / 3), 0.3]; // beside the head, waving
+const advances = (frames: RawSeqFrame[], assist = true) => {
+  const t = new GuidedTracker(TURN_1);
+  t.assist = assist;
+  return frames.map((f) => t.push(f)).filter((a): a is NonNullable<typeof a> => !!a).map((a) => `${TURN_1.steps[a.index]!.gloss}:${a.how}`);
+};
+
+describe("one continuous movement counts once", () => {
+  it("a 6 s continuous HALLO wave gives exactly HALLO, nothing more (with Assistenz on)", () => {
+    expect(advances(synth(150, wave))).toEqual(["HALLO:rule"]);
+  });
+
+  it("two clearly separate segments give 2 steps", () => {
+    const frames = [...synth(50, wave), ...synth(15, () => null), ...synth(50, (i) => [0.45 + 0.02 * Math.sin(i / 2), 0.22])];
+    const got = advances(frames, false);
+    expect(got.length).toBe(2);
+    expect(got[0]).toBe("HALLO:rule");
+  });
+
+  it("Assistenz advances at most one step per segment, only after 3 s", () => {
     const t = new GuidedTracker(TURN_1);
-    t.skip(); // now at KOPF; feed ARZT (no head touch) so only Assistenz can advance
-    const frames = onScreen("ARZT", 0.3, true);
-    let at = -1;
-    frames.forEach((f, i) => {
-      if (at < 0 && t.push(f)) at = i;
-    });
-    expect(at).toBeGreaterThan(0);
-    expect(at).toBeLessThanOrEqual(60); // 2.4 s at 25 FPS, incl. the hand-raise at the start
+    t.skip(); // at KOPF; move in front of the chest (never at the head) for 6 s, one segment
+    const hits: number[] = [];
+    synth(150, (i) => [0.5 + 0.08 * Math.sin(i / 3), 0.75]).forEach((f, i) => { if (t.push(f)) hits.push(i); });
+    expect(hits.length).toBe(1);
+    expect(hits[0]).toBeGreaterThanOrEqual(75);
   });
 });

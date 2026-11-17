@@ -15,7 +15,7 @@ export function GuidedPanel({ ph, disabled, className }: { ph: Ph; disabled: boo
       <h2 id="guided-h" className="text-[13px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">Apotheke · DGS · Geführtes Szenario</h2>
       <p className="m-0 text-sm text-muted-foreground">
         Erkennt einfache Merkmale der erwarteten Gebärden (Hand am Kopf, vor der Brust, Bewegung), fließend ohne Pausen.
-        Schritte mit „~“ zählen jede deutliche Gebärde; Assistenz geht nach 1,5 s Gebärden weiter. Keine freie Erkennung.
+        Schritte mit „~“ zählen jede deutliche Gebärde; Assistenz geht nach 3 s Gebärden einen Schritt weiter. Keine freie Erkennung.
       </p>
       <div className="flex flex-wrap gap-2">
         {TURNS.map((t, i) => (
