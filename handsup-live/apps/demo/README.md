@@ -15,6 +15,23 @@ Browser ── MediaPipe + fc10 (on device, video never leaves it)
 
 If the LLM is unreachable or `LLM_API_KEY` is not set, the page falls back to the raw words (as before) and still speaks.
 
+## Two modes (design/mockups)
+
+| Address | Mode | Screens |
+| --- | --- | --- |
+| `/signer` | The signer's phone, standing on the counter | 1 Set up → 2 Signing (top half rotated for staff: sentence, quick replies, hold to speak) → 3 Reply (picture tiles + simple sentence, Bigger, Sign answer) |
+| `/counter` | The business's tablet | 4 Staff view (stage, caption card, conversation, quick replies, hold to speak, Show to customer) → 5 Customer view (big tiles, Sign your answer) |
+| `/` | Phones get `/signer`, bigger screens `/counter` | |
+
+**Mock mode** (on by default) plays a scripted pharmacy dialogue (HALLO MEDIKAMENT KOPF SCHMERZ → "Hello. I need medicine
+for a headache.", then NEIN → "No.") with no camera, model or LLM, so the whole flow works on stage. Off, the camera
+and the real model run (weather vocabulary).
+
+**Staff answer:** a quick reply (built-in picture reply), typed text, or **hold to speak**: the page records 16 kHz WAV
+and `POST /api/transcribe` has Voice Control write it down (same one-at-a-time queue as speech). Free text goes to
+`POST /api/simplify`, where the LLM returns very short sentences and up to 3 tiles as JSON (checked against a fixed icon
+list); if that fails the answer is shown as big text.
+
 ## Run it locally
 
 Model files are not in git (see `../../README.md` for the four downloads and `FC10_DIR`).
@@ -47,6 +64,10 @@ npm start -w @handsup/demo          # http://127.0.0.1:8810 (PORT / HOST overrid
 | `src/lib/rewrite.ts` | `rewrite(glosses, hints, lang)` → `/api/rewrite`, one natural sentence for a caption line. |
 | `src/lib/shared/` | Small helpers copied from `apps/web` (skeleton overlay, network guard, demo-clip parser, camera help). |
 | `server/index.mjs` | Static files + the API routes (`/api/tts`, `/api/rewrite`, `/api/health`); 400-character cap, one speech job at a time, per-client rate limits, fixed voices (`server/voices.mjs`). |
+| `server/simplify-prompt.mjs` | Prompt and answer checker for the picture reply (`parseSimplify`). |
+| `src/lib/useSession.ts` | What both modes share: mock or real source, ordered rewrite → speech, conversation, staff reply. |
+| `src/lib/mockSigner.ts`, `src/lib/replies.ts`, `src/lib/recordWav.ts`, `src/lib/route.ts` | Mock dialogue, built-in replies + `/api/simplify`, WAV recording, `/signer` `/counter` routing. |
+| `src/components/signer/` | Phone screens 1–3 and the settings sheet. `src/components/CounterApp.tsx` and `CustomerView.tsx` are screens 4–5. |
 | `server/video-link.mjs` | YouTube link check (`parseVideoId`), the `yt-dlp` download, the per-visitor hourly limiter. |
 | `src/lib/videoLink.ts` | `fetchVideo(url)` → `/api/video`, returns the clip as a `File` for `startUpload`. |
 | `server/rewrite-prompt.mjs` | The gloss → sentence prompt (system message + few-shot examples per language) and the answer cleaner. |

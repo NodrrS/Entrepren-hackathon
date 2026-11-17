@@ -3,7 +3,7 @@ import { LogoMark } from "./Logo";
 import { cn } from "@/lib/utils";
 
 /** The dark camera stage of mockup 4: status label, skeleton toggle, video + skeleton canvas, caption card at the bottom. */
-export function Stage({ videoRef, canvasRef, running, hint, label, showSkeleton, onToggleSkeleton, drag, dropHandlers, caption, className }: {
+export function Stage({ videoRef, canvasRef, running, hint, label, showSkeleton, onToggleSkeleton, drag, dropHandlers, caption, figure, className }: {
   videoRef: RefObject<HTMLVideoElement>;
   canvasRef: RefObject<HTMLCanvasElement>;
   running: boolean;
@@ -15,6 +15,8 @@ export function Stage({ videoRef, canvasRef, running, hint, label, showSkeleton,
   drag: boolean;
   dropHandlers: Record<string, unknown>;
   caption: ReactNode;
+  /** Shown instead of the camera (Mock mode). */
+  figure?: ReactNode;
   className?: string | undefined;
 }) {
   return (
@@ -35,8 +37,9 @@ export function Stage({ videoRef, canvasRef, running, hint, label, showSkeleton,
       {/* The video gets its own area: the caption card below never covers the signer. */}
       <div className="relative min-h-[14rem] flex-1 overflow-hidden rounded-xl">
         {/* Fit and mirroring (camera only) are set by the recognizer engine on both the video and the canvas, so they stay aligned. */}
-        <video ref={videoRef} muted playsInline className="absolute inset-0 h-full w-full" />
-        <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
+        <video ref={videoRef} muted playsInline className={cn("absolute inset-0 h-full w-full", figure && "invisible")} />
+        <canvas ref={canvasRef} className={cn("pointer-events-none absolute inset-0 h-full w-full", figure && "invisible")} aria-hidden="true" />
+        {figure}
         {hint && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 text-center">
             <LogoMark className="h-14 w-14 text-primary" />

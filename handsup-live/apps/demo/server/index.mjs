@@ -5,6 +5,9 @@
 //   POST /api/tts      -> audio/wav     body { text: string (<= 400 chars), lang: "en" | "de" }
 //   POST /api/rewrite  -> { sentence, ms }   body { glosses: string, hints?: string, lang: "en" | "de" }
 //                         turns raw sign glosses into one natural sentence with an LLM (metacon, via LiteLLM)
+//   POST /api/simplify -> { sentence, tiles }   body { text: string, lang: "en" | "de" }
+//                         the staff answer as very short plain sentences + up to 3 picture tiles (LLM, strict JSON)
+//   POST /api/transcribe?lang=en|de -> { text }   body audio/wav (<= 1 MB): staff speech to text via Voice Control
 //   POST /api/video    -> video/mp4     body { url: a YouTube link }   only when VIDEO_LINKS=on and yt-dlp is installed
 //                         fetches a short clip (<= 3 min, <= 40 MB, 480p, no audio) for the page to translate
 //
@@ -17,6 +20,7 @@ import { createServer } from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildMessages, cleanSentence } from "./rewrite-prompt.mjs";
+import { buildSimplifyMessages, parseSimplify } from "./simplify-prompt.mjs";
 import { MESSAGES, createLimiter, downloadVideo, parseVideoId, ytdlpAvailable } from "./video-link.mjs";
 import { MAX_TEXT_CHARS, VOICES } from "./voices.mjs";
 
@@ -40,6 +44,7 @@ const RATE_MAX = 30; // speech requests per client per minute
 const TTS_TIMEOUT_MS = 30_000;
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS ?? 6_000);
 const REWRITE_RATE_MAX = 40; // rewrite requests per client per minute
+const MAX_AUDIO_BYTES = 1024 * 1024; // staff recordings: about 30 s of 16 kHz mono 16-bit audio
 // Video links: off unless VIDEO_LINKS=on (and yt-dlp is installed). One download at a time, 3 per client per hour.
 const LINKS_ON = process.env.VIDEO_LINKS === "on" && ytdlpAvailable();
 const VIDEO_PER_HOUR = 3;
@@ -79,7 +84,7 @@ const CSP = [
 
 const SECURITY_HEADERS = {
   "Content-Security-Policy": CSP,
-  "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), interest-cohort=()",
+  "Permissions-Policy": "camera=(self), microphone=(self), geolocation=(), interest-cohort=()",
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -152,7 +157,7 @@ async function synthesize(text, lang) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-async function readBody(req, limit = 4096) {
+async function readBuffer(req, limit = 4096) {
   const chunks = [];
   let n = 0;
   for await (const c of req) {
@@ -160,8 +165,9 @@ async function readBody(req, limit = 4096) {
     if (n > limit) throw Object.assign(new Error("body too large"), { status: 413 });
     chunks.push(c);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks);
 }
+const readBody = async (req, limit = 4096) => (await readBuffer(req, limit)).toString("utf8");
 
 // ---------------------------------------------------------------- routes
 let healthCache = { at: 0, ok: false };
@@ -193,18 +199,12 @@ async function llmUp() {
   return ok;
 }
 
-async function rewriteSentence(glosses, hints, lang) {
+/** One chat completion on the gateway; returns the answer text. */
+async function llmChat(messages, maxTokens) {
   const res = await fetch(`${LLM_URL}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...llmHeaders },
-    body: JSON.stringify({
-      model: LLM_MODEL,
-      messages: buildMessages(glosses, hints, lang),
-      temperature: 0,
-      seed: 42,
-      max_tokens: 120,
-      think: false,
-    }),
+    body: JSON.stringify({ model: LLM_MODEL, messages, temperature: 0, seed: 42, max_tokens: maxTokens, think: false }),
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
   if (!res.ok) {
@@ -213,7 +213,11 @@ async function rewriteSentence(glosses, hints, lang) {
     throw err;
   }
   const data = await res.json();
-  return cleanSentence(data?.choices?.[0]?.message?.content);
+  return data?.choices?.[0]?.message?.content;
+}
+
+async function rewriteSentence(glosses, hints, lang) {
+  return cleanSentence(await llmChat(buildMessages(glosses, hints, lang), 120));
 }
 
 async function handleRewrite(req, res) {
@@ -242,6 +246,69 @@ async function handleRewrite(req, res) {
     const timeout = e?.name === "TimeoutError" || e?.name === "AbortError";
     console.error(`rewrite failed: ${timeout ? "timeout" : (e?.message ?? "error")}`);
     json(res, timeout ? 504 : 502, { error: "The sentence service is not available right now." });
+  }
+}
+
+async function handleSimplify(req, res) {
+  if (!LLM_KEY) return json(res, 503, { error: "Sentences are not set up on this server." });
+  if (!(req.headers["content-type"] ?? "").includes("application/json")) return json(res, 415, { error: "send JSON" });
+  if (rateLimited(`sp:${clientId(req)}`, REWRITE_RATE_MAX)) return json(res, 429, { error: "Too many requests. Try again in a minute." });
+  let body;
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (e) {
+    return json(res, e.status === 413 ? 413 : 400, { error: "invalid request body" });
+  }
+  const text = typeof body?.text === "string" ? body.text.trim() : "";
+  const lang = body?.lang;
+  if (!text) return json(res, 400, { error: "text is empty" });
+  if (text.length > MAX_TEXT_CHARS) return json(res, 400, { error: `text is longer than ${MAX_TEXT_CHARS} characters` });
+  if (lang !== "en" && lang !== "de") return json(res, 400, { error: 'lang must be "en" or "de"' });
+  try {
+    const out = parseSimplify(await llmChat(buildSimplifyMessages(text, lang), 260));
+    if (!out) return json(res, 502, { error: "The picture service gave no usable answer." });
+    json(res, 200, out);
+  } catch (e) {
+    const timeout = e?.name === "TimeoutError" || e?.name === "AbortError";
+    console.error(`simplify failed: ${timeout ? "timeout" : (e?.message ?? "error")}`);
+    json(res, timeout ? 504 : 502, { error: "The picture service is not available right now." });
+  }
+}
+
+async function transcribeAudio(wav, lang) {
+  const form = new FormData();
+  form.append("file", new Blob([wav], { type: "audio/wav" }), "answer.wav");
+  form.append("language", lang === "de" ? "German" : "English");
+  const res = await fetch(`${VC_URL}/v1/audio/transcriptions`, { method: "POST", headers: vcHeaders, body: form, signal: AbortSignal.timeout(TTS_TIMEOUT_MS) });
+  if (!res.ok) {
+    const err = new Error(`voice service answered ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  return typeof data?.text === "string" ? data.text.trim() : "";
+}
+
+async function handleTranscribe(req, res, url) {
+  if (!(req.headers["content-type"] ?? "").includes("audio/wav")) return json(res, 415, { error: "send audio/wav" });
+  if (rateLimited(`tr:${clientId(req)}`, RATE_MAX)) return json(res, 429, { error: "Too many requests. Try again in a minute." });
+  const lang = url.searchParams.get("lang");
+  if (lang !== "en" && lang !== "de") return json(res, 400, { error: 'lang must be "en" or "de"' });
+  let wav;
+  try {
+    wav = await readBuffer(req, MAX_AUDIO_BYTES);
+  } catch (e) {
+    return json(res, e.status === 413 ? 413 : 400, { error: e.status === 413 ? "The recording is too long." : "invalid request body" });
+  }
+  if (wav.length < 1000 || wav.toString("ascii", 0, 4) !== "RIFF") return json(res, 400, { error: "That is not a WAV recording." });
+  const job = enqueue(() => transcribeAudio(wav, lang));
+  if (!job) return json(res, 503, { error: "The voice is busy. Try again in a moment." });
+  try {
+    json(res, 200, { text: await job });
+  } catch (e) {
+    const timeout = e?.name === "TimeoutError" || e?.name === "AbortError";
+    console.error(`transcribe failed: ${timeout ? "timeout" : (e?.message ?? "error")}`);
+    json(res, timeout ? 504 : 502, { error: "The voice service is not available right now." });
   }
 }
 
@@ -333,6 +400,14 @@ const server = createServer(async (req, res) => {
     if (p === "/api/health" && req.method === "GET") {
       const [ok, llm] = await Promise.all([voiceUp(), llmUp()]);
       return json(res, 200, { ok, llm, links: LINKS_ON });
+    }
+    if (p === "/api/simplify") {
+      if (req.method !== "POST") return json(res, 405, { error: "POST only" });
+      return await handleSimplify(req, res);
+    }
+    if (p === "/api/transcribe") {
+      if (req.method !== "POST") return json(res, 405, { error: "POST only" });
+      return await handleTranscribe(req, res, url);
     }
     if (p === "/api/video") {
       if (req.method !== "POST") return json(res, 405, { error: "POST only" });
