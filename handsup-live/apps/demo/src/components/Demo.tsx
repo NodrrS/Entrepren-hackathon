@@ -6,8 +6,9 @@ import { rewrite } from "@/lib/rewrite";
 import { fetchVideo } from "@/lib/videoLink";
 import { cn } from "@/lib/utils";
 import { Captions, rawWords, type SentenceState } from "./Captions";
-import { Chip, Equalizer, LangToggle, Pill, Switch } from "./Controls";
+import { Equalizer, LangToggle, Pill, Switch } from "./Controls";
 import { Conversation, type Bubble } from "./Conversation";
+import { HowItWorks } from "./HowItWorks";
 import { Logo } from "./Logo";
 import { Stage } from "./Stage";
 import { useSpeechQueue } from "./useSpeechQueue";
@@ -165,20 +166,13 @@ export function Demo() {
       </header>
 
       {info && (
-        <section id="how-it-works" className="shrink-0 border-b border-hairline bg-secondary px-4 py-5 sm:px-7">
-          <div className="mx-auto grid max-w-5xl gap-4 text-[15px] md:grid-cols-2">
-            <div className="space-y-2">
-              <h2 className="font-display text-lg font-bold">How it works</h2>
-              <p>The camera and the sign model run on your device, so your video never leaves it. Each finished line of signs (shown small, in sign order) is sent as words only to our own server, where an AI model writes one natural sentence. The sentence is shown large and spoken aloud.</p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Chip ok={ready}>Model ready</Chip>
-                <Chip ok={voiceOk}>Voice ready</Chip>
-                <Chip ok={llmOk}>Sentences ready</Chip>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <h2 className="font-display text-lg font-bold">Honest limits</h2>
-              <p>Research demo. The sign model was trained on German Sign Language weather forecasts (PHOENIX-2014, non-commercial research use) and knows about 1,200 signs, so everyday signing will mostly give wrong or no words. Not for medical, legal or emergency use.</p>
+        <section id="how-it-works" aria-labelledby="how-h" className="shrink-0 border-b border-hairline bg-secondary px-4 py-6 sm:px-7">
+          <div className="mx-auto max-w-6xl space-y-5">
+            <h2 id="how-h" className="font-display text-xl font-bold">How it works</h2>
+            <HowItWorks modelOk={ready} llmOk={llmOk} voiceOk={voiceOk} />
+            <div className="grid gap-4 text-[15px] md:grid-cols-2">
+              <p><strong>Privacy.</strong> Your video never leaves your device. Only the recognised words are sent, to our own server, to write the sentence and speak it.</p>
+              <p><strong>Honest limits.</strong> Research demo. The sign model was trained on German Sign Language weather forecasts (PHOENIX-2014, non-commercial research use) and knows about 1,200 signs, so everyday signing will mostly give wrong or no words. Not for medical, legal or emergency use.</p>
             </div>
           </div>
         </section>
