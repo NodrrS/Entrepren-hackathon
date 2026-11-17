@@ -4,8 +4,13 @@ import { useSpeechQueue } from "@/components/useSpeechQueue";
 import { MOCK_LATENCY_MS, mockSentence, useMockSigner } from "./mockSigner";
 import { builtinReply, makeReply, type Reply } from "./replies";
 import { rewrite } from "./rewrite";
-import { checkHealth } from "./speech";
+import { checkHealth, type VoiceStyle } from "./speech";
 import { useRecognizer, type CaptionLine, type Lang } from "./recognizer";
+
+/** What is being translated: the live camera, the recorded weather forecast through the real model, or the scripted pharmacy dialogue. */
+export type Source = "camera" | "weather" | "pharmacy";
+/** The recorded forecast is the three clips in demo-clips.json, played back to back. */
+export const WEATHER_CLIPS = 3;
 
 export interface Message {
   key: string;
@@ -27,9 +32,21 @@ function rewriteInput(line: CaptionLine, lang: Lang) {
 export function useSession() {
   const real = useRecognizer();
   const mock = useMockSigner();
-  const [useMock, setUseMockState] = useState(false); // live camera by default; the scripted example is one tap away
+  const [source, setSourceState] = useState<Source>("camera"); // live camera by default
+  const useMock = source === "pharmacy";
+  // Weather forecast: which clip plays (0-based), or null when the forecast is not playing.
+  const [weatherClip, setWeatherClip] = useState<number | null>(null);
+  const [forecastDone, setForecastDone] = useState(false);
+  // Pause: the clip that is playing finishes, then the forecast waits until "Next clip".
+  const [weatherPaused, setWeatherPaused] = useState(false);
+  const [weatherWaiting, setWeatherWaiting] = useState(false);
+  const pausedRef = useRef(false);
+  pausedRef.current = weatherPaused;
+  const weatherTimer = useRef<number | undefined>(undefined);
+  const prevMode = useRef(real.mode);
   const [lang, setLang] = useState<Lang>("en");
   const [speakOn, setSpeakOn] = useState(true);
+  const [voice, setVoice] = useState<VoiceStyle>("default"); // the default voice is the main one; the others only show it is real
   const [muted, setMuted] = useState(false);
   const [voiceOk, setVoiceOk] = useState(false);
   const [llmOk, setLlmOk] = useState(false);
@@ -40,8 +57,8 @@ export function useSession() {
   const [pictures, setPictures] = useState(true); // reply style: pictures + simple text, or big text only
   const { enqueue, playing } = useSpeechQueue(muted);
 
-  const settings = useRef({ lang, speakOn, llmOk, useMock });
-  settings.current = { lang, speakOn, llmOk, useMock };
+  const settings = useRef({ lang, speakOn, llmOk, useMock, voice });
+  settings.current = { lang, speakOn, llmOk, useMock, voice };
   const lines = useMock ? mock.lines : real.lines;
   const latest = useRef<CaptionLine[]>([]);
   latest.current = lines;
@@ -59,7 +76,7 @@ export function useSession() {
   const subscribe = useMock ? mock.onLineFinal : real.onLineFinal;
   useEffect(() => subscribe((line) => {
     chain.current = chain.current.then(async () => {
-      const { lang: l, speakOn: speak, llmOk: llm, useMock: scripted } = settings.current;
+      const { lang: l, speakOn: speak, llmOk: llm, useMock: scripted, voice: v } = settings.current;
       let text = rawWords(line, l);
       setMessages((m) => [...m, { key: `line-${line.id}`, who: "signer", text, lineId: line.id }]);
       const fixed = scripted ? mockSentence(line, l) : undefined;
@@ -82,7 +99,7 @@ export function useSession() {
           setSentences((s) => ({ ...s, [line.id]: "failed" }));
         }
       }
-      if (speak) enqueue(text, l);
+      if (speak) enqueue(text, l, v);
     });
   }), [subscribe, enqueue]);
 
@@ -101,17 +118,42 @@ export function useSession() {
       .catch(() => {});
   }, [lang]);
 
-  const reset = useCallback(() => { setMessages([]); setSentences({}); setReply(null); }, []);
-  const stop = useCallback(() => { mock.stop(); real.stop(); }, [mock, real]);
-  const setUseMock = useCallback((v: boolean) => { mock.stop(); real.stop(); reset(); setUseMockState(v); }, [mock, real, reset]);
+  // The forecast plays its clips back to back: when one clip ends, the next starts.
+  useEffect(() => {
+    const was = prevMode.current;
+    prevMode.current = real.mode;
+    if (weatherClip === null || was !== "demo" || real.mode !== "idle") return;
+    const next = weatherClip + 1;
+    if (next >= WEATHER_CLIPS) { setWeatherClip(null); setWeatherPaused(false); setForecastDone(true); return; }
+    if (pausedRef.current) { setWeatherWaiting(true); return; }
+    setWeatherClip(next);
+    weatherTimer.current = window.setTimeout(() => void real.startDemo(next), 900);
+  }, [real.mode, weatherClip, real]);
 
-  /** Starts a new conversation from the active source: the scripted dialogue, or the camera. */
+  const reset = useCallback(() => { setMessages([]); setSentences({}); setReply(null); setForecastDone(false); }, []);
+  const stopWeather = useCallback(() => { clearTimeout(weatherTimer.current); setWeatherClip(null); setWeatherPaused(false); setWeatherWaiting(false); }, []);
+  const pauseWeather = useCallback(() => setWeatherPaused(true), []);
+  /** Undoes a pause; if a clip already ended while paused, the next one starts now. */
+  const resumeWeather = useCallback(() => {
+    setWeatherPaused(false);
+    if (!weatherWaiting || weatherClip === null) return;
+    setWeatherWaiting(false);
+    const next = weatherClip + 1;
+    setWeatherClip(next);
+    void real.startDemo(next);
+  }, [weatherWaiting, weatherClip, real]);
+  const stop = useCallback(() => { stopWeather(); mock.stop(); real.stop(); }, [mock, real, stopWeather]);
+  const setSource = useCallback((v: Source) => { stopWeather(); mock.stop(); real.stop(); reset(); setSourceState(v); }, [mock, real, reset, stopWeather]);
+
+  /** Starts a new conversation from the active source: the camera, the recorded forecast, or the scripted dialogue. */
   const start = useCallback(async () => {
     reset();
-    if (settings.current.useMock) { real.stop(); mock.start(); return; }
+    stopWeather();
+    if (source === "pharmacy") { real.stop(); mock.start(); return; }
     mock.stop();
+    if (source === "weather") { setWeatherClip(0); await real.startDemo(0); return; }
     await real.startCamera();
-  }, [mock, real, reset]);
+  }, [mock, real, reset, source, stopWeather]);
 
   /** Staff answer (typed, spoken and transcribed, or a quick reply): becomes the reply the signer sees. */
   const sendReply = useCallback((text: string, opts?: { advance?: boolean }) => {
@@ -127,10 +169,11 @@ export function useSession() {
   }, [mock]);
 
   return {
-    real, mock, useMock, setUseMock,
+    real, mock, source, setSource, useMock, weatherClip, forecastDone, weatherPaused, weatherWaiting, pauseWeather, resumeWeather,
+    voice, setVoice,
     lang, setLang, speakOn, setSpeakOn, muted, setMuted, playing,
     voiceOk, llmOk, linksOk,
-    lines, running: useMock ? mock.running : real.mode !== "idle", ready: useMock || real.phase === "ready",
+    lines, running: useMock ? mock.running : real.mode !== "idle" || weatherClip !== null, ready: useMock || real.phase === "ready",
     sentences, messages, reply, setReply, pictures, setPictures,
     start, stop, reset, sendReply, enqueue,
   };

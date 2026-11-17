@@ -4,13 +4,16 @@ import type { Lang } from "./recognizer";
  * Text to speech through this page's own server (POST /api/tts), which asks the Voice Control service.
  * Only the text and the language ("en" | "de") are sent; the server picks the voice. Returns audio/wav.
  */
-export async function speak(text: string, lang: Lang, signal?: AbortSignal): Promise<Blob | null> {
+/** The voices the page may use: the default (main) voice, and two character voices to show it is real. */
+export type VoiceStyle = "default" | "c3po" | "snape";
+
+export async function speak(text: string, lang: Lang, voice: VoiceStyle = "default", signal?: AbortSignal): Promise<Blob | null> {
   const clean = text.trim();
   if (!clean) return null;
   const res = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: clean, lang }),
+    body: JSON.stringify({ text: clean, lang, ...(voice !== "default" ? { voice } : {}) }),
     ...(signal ? { signal } : {}),
   });
   if (!res.ok) throw new Error(`speech failed (${res.status})`);

@@ -2,7 +2,7 @@
 // Hands Up demo server: serves the built page (dist/) and two narrow routes: speech and sentence rewriting.
 //
 //   GET  /api/health   -> { ok: boolean, llm: boolean, links: boolean }   whether Voice Control / the LLM gateway answer / video links work
-//   POST /api/tts      -> audio/wav     body { text: string (<= 400 chars), lang: "en" | "de" }
+//   POST /api/tts      -> audio/wav     body { text: string (<= 400 chars), lang: "en" | "de", voice?: "default" | "c3po" | "snape" }
 //   POST /api/rewrite  -> { sentence, ms }   body { glosses: string, hints?: string, lang: "en" | "de" }
 //                         turns raw sign glosses into one natural sentence with an LLM (metacon, via LiteLLM)
 //   POST /api/simplify -> { sentence, tiles }   body { text: string, lang: "en" | "de" }
@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { buildMessages, cleanSentence } from "./rewrite-prompt.mjs";
 import { buildSimplifyMessages, parseSimplify } from "./simplify-prompt.mjs";
 import { MESSAGES, createLimiter, downloadVideo, parseVideoId, ytdlpAvailable } from "./video-link.mjs";
-import { MAX_TEXT_CHARS, VOICES } from "./voices.mjs";
+import { MAX_TEXT_CHARS, VOICE_STYLES, VOICES } from "./voices.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DIST = resolve(here, "..", "dist");
@@ -141,8 +141,8 @@ function enqueue(job) {
   return run;
 }
 
-async function synthesize(text, lang) {
-  const v = VOICES[lang];
+async function synthesize(text, lang, style = "default") {
+  const v = { ...VOICES[lang], voice: VOICE_STYLES[style] ?? VOICES[lang].voice };
   const res = await fetch(`${VC_URL}/v1/audio/speech`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...vcHeaders },
@@ -352,8 +352,10 @@ async function handleTts(req, res) {
   if (!text) return json(res, 400, { error: "text is empty" });
   if (text.length > MAX_TEXT_CHARS) return json(res, 400, { error: `text is longer than ${MAX_TEXT_CHARS} characters` });
   if (lang !== "en" && lang !== "de") return json(res, 400, { error: 'lang must be "en" or "de"' });
+  const style = body?.voice ?? "default";
+  if (!Object.hasOwn(VOICE_STYLES, style)) return json(res, 400, { error: 'voice must be "default", "c3po" or "snape"' });
 
-  const job = enqueue(() => synthesize(text, lang));
+  const job = enqueue(() => synthesize(text, lang, style));
   if (!job) return json(res, 503, { error: "The voice is busy. Try again in a moment." });
   try {
     const wav = await job;

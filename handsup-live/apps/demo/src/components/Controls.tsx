@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { Lang } from "@/lib/recognizer";
+import type { VoiceStyle } from "@/lib/speech";
 import type { ButtonHTMLAttributes } from "react";
 
 /** "ghost" is the mockup's outlined 48 px button (14 px radius); "primary" is the orange pill. */
@@ -68,14 +69,36 @@ export function Equalizer({ active }: { active: boolean }) {
   );
 }
 
-/** Live camera or the scripted example (Mock mode), as two clear options. */
-export function SourceToggle({ useMock, onChange, className }: { useMock: boolean; onChange: (mock: boolean) => void; className?: string | undefined }) {
-  const opts: Array<[boolean, string]> = [[false, "Live camera"], [true, "Scripted example"]];
+export type SourceChoice = "camera" | "weather" | "pharmacy";
+export const SOURCE_LABELS: Record<SourceChoice, string> = { camera: "Live camera", weather: "Weather", pharmacy: "Pharmacy" };
+export const SOURCE_NOTES: Record<SourceChoice, string> = {
+  camera: "Front camera · German weather-forecast signs",
+  weather: "A recorded weather forecast, read by the real model",
+  pharmacy: "A scripted pharmacy conversation, no camera",
+};
+
+/** What to translate: the live camera, the recorded weather forecast (real model), or the scripted pharmacy example. */
+export function SourceToggle({ value, onChange, className }: { value: SourceChoice; onChange: (v: SourceChoice) => void; className?: string | undefined }) {
   return (
-    <div role="radiogroup" aria-label="What to translate" className={cn("grid grid-cols-2 rounded-full border border-border bg-secondary p-1", className)}>
+    <div role="radiogroup" aria-label="What to translate" className={cn("grid grid-cols-3 rounded-full border border-border bg-secondary p-1", className)}>
+      {(Object.keys(SOURCE_LABELS) as SourceChoice[]).map((v) => (
+        <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
+          className={cn("h-11 rounded-full px-2 text-[14px] font-semibold whitespace-nowrap transition-colors", value === v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}>
+          {SOURCE_LABELS[v]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Which voice speaks: the default (main) voice, or one of two character voices. */
+export function VoiceToggle({ value, onChange, className }: { value: VoiceStyle; onChange: (v: VoiceStyle) => void; className?: string | undefined }) {
+  const opts: Array<[VoiceStyle, string]> = [["default", "Default"], ["c3po", "C-3PO"], ["snape", "Snape"]];
+  return (
+    <div role="radiogroup" aria-label="Voice" className={cn("inline-flex rounded-full border border-border bg-secondary p-1", className)}>
       {opts.map(([v, t]) => (
-        <button key={t} type="button" role="radio" aria-checked={useMock === v} onClick={() => onChange(v)}
-          className={cn("h-11 rounded-full px-4 text-[15px] font-semibold transition-colors", useMock === v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}>
+        <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
+          className={cn("h-10 min-w-11 rounded-full px-4 text-[15px] font-medium transition-colors", value === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
           {t}
         </button>
       ))}

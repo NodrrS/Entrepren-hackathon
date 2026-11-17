@@ -17,11 +17,6 @@ export function SignerApp({ s, onCounter }: { s: Session; onCounter: () => void 
     setStarting(true);
     try { await s.start(); setScreen("signing"); } finally { setStarting(false); }
   };
-  // The real model on a recorded clip (the three clips in turn): live mode without a camera.
-  const example = async () => {
-    setStarting(true);
-    try { s.reset(); s.mock.stop(); await s.real.startDemo(); setScreen("signing"); } finally { setStarting(false); }
-  };
   // The staff answer replaces nothing on the signing screen: it opens the reply screen. The scripted dialogue
   // goes on only once the signer is back to signing.
   const reply = (text: string) => { s.sendReply(text, { advance: false }); setScreen("reply"); };
@@ -30,7 +25,7 @@ export function SignerApp({ s, onCounter }: { s: Session; onCounter: () => void 
 
   return (
     <>
-      {screen === "setup" && <Setup s={s} onStart={() => void start()} onExample={() => void example()} onSettings={() => setSheet(true)} starting={starting} />}
+      {screen === "setup" && <Setup s={s} onStart={() => void start()} onSettings={() => setSheet(true)} starting={starting} />}
       <Signing s={s} active={screen === "signing"} onReply={reply} onEnd={end} />
       {screen === "reply" && <Reply s={s} onSign={signAgain} onReplace={(t) => s.sendReply(t, { advance: false })} />}
       {sheet && <SettingsSheet s={s} onClose={() => setSheet(false)} onCounter={onCounter} />}

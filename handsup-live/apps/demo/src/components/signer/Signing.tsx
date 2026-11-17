@@ -57,9 +57,19 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
         <div className="flex items-center justify-between gap-3">
           <span className="flex items-center gap-2 text-sm font-semibold text-white">
             <span className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
-            Reading your signs
+            {s.source === "weather"
+              ? s.forecastDone ? "Forecast finished" : s.weatherWaiting ? `Paused after clip ${(s.weatherClip ?? 0) + 1} of 3` : `Weather forecast · clip ${(s.weatherClip ?? 0) + 1} of 3`
+              : "Reading your signs"}
           </span>
-          <button type="button" onClick={onEnd} className="min-h-11 rounded-full bg-white px-5 text-[15px] font-semibold text-ink">End</button>
+          <div className="flex gap-2">
+            {s.source === "weather" && s.weatherClip !== null && (
+              <button type="button" onClick={s.weatherWaiting || s.weatherPaused ? s.resumeWeather : s.pauseWeather} aria-pressed={s.weatherPaused}
+                className="min-h-11 rounded-full bg-stage-chip px-4 text-[15px] font-semibold text-white">
+                {s.weatherWaiting ? "Next clip" : s.weatherPaused ? "Don't pause" : "Pause"}
+              </button>
+            )}
+            <button type="button" onClick={onEnd} className="min-h-11 rounded-full bg-white px-5 text-[15px] font-semibold text-ink">End</button>
+          </div>
         </div>
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl">
           {/* Fit and mirroring (camera only) are set by the recognizer engine on both the video and the canvas, so they stay aligned. */}

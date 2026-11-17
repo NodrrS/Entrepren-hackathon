@@ -23,9 +23,16 @@ If the LLM is unreachable or `LLM_API_KEY` is not set, the page falls back to th
 | `/counter` | The business's tablet | 4 Staff view (stage, caption card, conversation, quick replies, hold to speak, Show to customer) → 5 Customer view (big tiles, Sign your answer) |
 | `/` | Phones get `/signer`, bigger screens `/counter` | |
 
-**Live camera** is the default; **Scripted example** (Mock mode) plays a scripted pharmacy dialogue (HALLO MEDIKAMENT KOPF SCHMERZ → "Hello. I need medicine
+Three sources, chosen on both screens: **Live camera** (the default); **Weather**, the recorded weather forecast (the three
+clips in `demo-clips.json`, back to back) read by the real model, each line turned into a sentence and spoken; and
+**Pharmacy** (Mock mode), which plays a scripted pharmacy dialogue (HALLO MEDIKAMENT KOPF SCHMERZ → "Hello. I need medicine
 for a headache.", then NEIN → "No.") with no camera, model or LLM, so the whole flow works on stage. Off, the camera
 and the real model run (weather vocabulary).
+
+**Voice:** Default (Ryan for English, Aiden for German) is the main voice and is selected on every load; a switch
+offers two character voices, C-3PO and Snape, to show the speech is real. The page sends only the style name
+(`"default" | "c3po" | "snape"`); the server maps it to a fixed voice id (`server/voices.mjs`), so no other voice can
+be reached. The weather forecast can **pause after the current clip** and go on with **Next clip**.
 
 **Staff answer:** a quick reply (built-in picture reply), typed text, or **hold to speak**: the page records 16 kHz WAV
 and `POST /api/transcribe` has Voice Control write it down (same one-at-a-time queue as speech). Free text goes to

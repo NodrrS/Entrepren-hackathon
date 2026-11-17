@@ -130,3 +130,27 @@ describe("POST /api/transcribe", () => {
     expect((await post(demo.base, "en", wav())).status).toBe(502);
   });
 });
+
+describe("POST /api/tts voices", () => {
+  const cleanup: Array<() => void> = [];
+  afterEach(() => { while (cleanup.length) cleanup.pop()!(); });
+  const post = (base: string, body: unknown) => fetch(`${base}/api/tts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+  it("sends the default voice, or the allow-listed character voice by id, and refuses anything else", async () => {
+    const vc = await startStub(() => ({ status: 200, body: "RIFF-fake-audio" }));
+    const demo = await startDemo({ VOICE_CONTROL_URL: vc.url });
+    cleanup.push(() => { demo.proc.kill(); vc.server.close(); });
+    const voices = () => vc.seen.filter((s) => s.url === "/v1/audio/speech").map((s) => JSON.parse(s.body.toString()).voice);
+
+    expect((await post(demo.base, { text: "Hello", lang: "en" })).status).toBe(200);
+    expect((await post(demo.base, { text: "Hallo", lang: "de", voice: "default" })).status).toBe(200);
+    expect((await post(demo.base, { text: "Hello", lang: "en", voice: "snape" })).status).toBe(200);
+    expect((await post(demo.base, { text: "Hello", lang: "en", voice: "c3po" })).status).toBe(200);
+    expect(voices()).toEqual(["Ryan", "Aiden", "voice-1dbe708a4613", "voice-034233ea177a"]);
+
+    for (const bad of ["Snape", "voice-ffd5e2be09ff", "MorganFreeman", "constructor", "__proto__", 1]) {
+      expect((await post(demo.base, { text: "Hello", lang: "en", voice: bad })).status, String(bad)).toBe(400);
+    }
+    expect(voices()).toHaveLength(4); // nothing else reached the voice service
+  });
+});
