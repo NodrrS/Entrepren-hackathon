@@ -1,0 +1,35 @@
+name: Deploy Hands Up to dev.handsupai.com
+on:
+  push:
+    branches: [main]
+    paths: ["handsup-live/**"]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ vars.HANDSUP_DEPLOY_ENABLED == 'true' }}
+    defaults:
+      run:
+        working-directory: handsup-live
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Fetch the pinned model files from the live site (SHA-256 checked by the build)
+        run: |
+          mkdir -p ../models/fc10/demo apps/web/public/models
+          curl -fsSo ../models/fc10/fc10_step.onnx https://live.handsupai.com/models/fc10_step.onnx
+          curl -fsSo ../models/fc10/fc10_vocab.json https://live.handsupai.com/models/fc10_vocab.json
+          curl -fsSo ../models/fc10/demo/demo-clips.json https://live.handsupai.com/demo/demo-clips.json
+          curl -fsSo apps/web/public/models/holistic_landmarker.task https://live.handsupai.com/models/holistic_landmarker.task
+      - run: npm run build -w @handsup/web
+        env:
+          FC10_DIR: ${{ github.workspace }}/models/fc10
+      - name: Deploy
+        working-directory: handsup-live/deploy/dev
+        run: npx --yes wrangler@4.144.0 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
