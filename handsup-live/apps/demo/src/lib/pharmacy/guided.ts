@@ -207,11 +207,26 @@ interface FrameFeat {
 }
 
 const WINDOW = 15; // 0.6 s at 25 FPS
+const COOLDOWN = 18; // 0.7 s after a match in which nothing can match
+const QUIET_SPEED = 0.008; // wrist speed (shoulder widths per frame) below which the hands count as calm
+const QUIET_FRAMES = 4; // 0.16 s of calm (or no hands) ends a motion segment
+const MOVE_SPEED = 0.012; // a new segment starts when the hands move faster than this after a calm moment
+const NEW_PLACE = 0.7; // or when the hands move this far (shoulder widths) from where the last match happened
+const LOOSE_FRAMES = 13; // "~" steps: a burst of at least 0.5 s in a new segment
+const ASSIST_FRAMES = 75; // Assistenz: 3 s of signing in a new segment, at most one step per segment
 
 export class GuidedTracker {
   private buf: FrameFeat[] = [];
   private ref: { nx: number; ny: number; sy: number; w: number } | null = null;
   private stepFrames = 0;
+  // Motion segments: every step must be matched in its own new segment, so one continuous wave never counts twice.
+  private segId = 0;
+  private usedSeg = 0; // segment of the last match (or skip); matches need segId > usedSeg
+  private segFrames = 0;
+  private quiet = QUIET_FRAMES; // calm frames in a row (start: calm)
+  private cooldown = 0;
+  private lastPos: Pt | null = null;
+  private matchPos: Pt | null = null;
   index = 0;
   assist = true;
   debug: TrackerDebug = { hands: 0, headDist: Infinity, motion: 0, step: "" };
@@ -231,6 +246,9 @@ export class GuidedTracker {
     this.index++;
     this.buf = [];
     this.stepFrames = 0;
+    this.usedSeg = this.segId;
+    this.cooldown = COOLDOWN;
+    this.matchPos = this.lastPos;
   }
 
   /** One 25 FPS frame (aspect-corrected). Returns the advance, if the current step fired. */
@@ -244,6 +262,19 @@ export class GuidedTracker {
         this.ref = this.ref ? { nx: 0.7 * this.ref.nx + 0.3 * r.nx, ny: 0.7 * this.ref.ny + 0.3 * r.ny, sy: 0.7 * this.ref.sy + 0.3 * r.sy, w: 0.8 * this.ref.w + 0.2 * r.w } : r;
       }
     }
+    // No pose yet (a small or partly visible signer): a stand-in reference from the hands, so motion and
+    // Assistenz still work. Shoulder width ~ 2.5 palm lengths; the "nose" sits above the hands.
+    if (!this.ref) {
+      for (const [h, s] of [[1, 33], [2, 54]] as const) {
+        if (!f.present[h]) continue;
+        const palm = Math.hypot(p[(s + 9) * 3]! - p[s * 3]!, p[(s + 9) * 3 + 1]! - p[s * 3 + 1]!);
+        if (palm > 0.002) {
+          const w = 2.5 * palm;
+          this.ref = { nx: p[s * 3]!, ny: p[s * 3 + 1]! - 0.8 * w, sy: p[s * 3 + 1]! - 0.2 * w, w };
+          break;
+        }
+      }
+    }
     const r = this.ref;
     const feat: FrameFeat = { hands: [], shY: r ? (r.sy - r.ny) / r.w : 0.6 };
     if (r) {
@@ -255,6 +286,20 @@ export class GuidedTracker {
         });
       }
     }
+    // --- motion segments ---
+    const pos = feat.hands.length ? { x: feat.hands.reduce((a, h) => a + h.w.x, 0) / feat.hands.length, y: feat.hands.reduce((a, h) => a + h.w.y, 0) / feat.hands.length } : null;
+    const speed = pos && this.lastPos ? Math.hypot(pos.x - this.lastPos.x, pos.y - this.lastPos.y) : 0;
+    this.lastPos = pos ?? this.lastPos;
+    const newPlace = pos && this.matchPos && this.segId === this.usedSeg && Math.hypot(pos.x - this.matchPos.x, pos.y - this.matchPos.y) > NEW_PLACE;
+    if ((this.quiet >= QUIET_FRAMES && speed > MOVE_SPEED) || newPlace) {
+      this.segId++; // a fresh burst after a calm moment, or a clear change of hand location
+      this.segFrames = 0;
+      this.buf = [];
+    }
+    this.quiet = !pos || speed < QUIET_SPEED ? this.quiet + 1 : 0;
+    if (pos) this.segFrames++;
+    if (this.cooldown > 0) this.cooldown--;
+
     this.buf.push(feat);
     if (this.buf.length > WINDOW) this.buf.shift();
     this.stepFrames++;
@@ -264,14 +309,17 @@ export class GuidedTracker {
     const headDists = this.buf.flatMap((b) => b.hands.map((h) => Math.hypot(h.tip.x, h.tip.y + 0.1)));
     this.debug = { hands: feat.hands.length, headDist: headDists.length ? Math.min(...headDists.slice(-3)) : Infinity, motion, step: step.gloss };
 
-    const fired = this.rule(step.rule, motion);
+    // Only in a new segment and after the cooldown: the same ongoing movement can never match twice.
+    const fresh = this.segId > this.usedSeg && this.cooldown === 0;
+    if (!fresh) return null;
+    const fired = step.rule === "loose" ? this.segFrames >= LOOSE_FRAMES && this.rule("loose", motion) : this.rule(step.rule, motion);
     if (fired) {
       const a: Advance = { index: this.index, how: step.rule === "loose" ? "loose" : "rule" };
       this.next();
       return a;
     }
-    // Assistenz: active signing for 1.5 s without a match -> advance with "~"
-    if (this.assist && this.stepFrames >= 38 && motion > 0.02 && feat.hands.length) {
+    // Assistenz: 3 s of signing in this new segment without a match -> advance one step with "~" (never chained)
+    if (this.assist && this.segFrames >= ASSIST_FRAMES && motion > 0.02 && feat.hands.length) {
       const a: Advance = { index: this.index, how: "assist" };
       this.next();
       return a;
@@ -301,9 +349,11 @@ export class GuidedTracker {
     const nearHead = (h: { tip: Pt }) => Math.hypot(h.tip.x, h.tip.y + 0.1) < 1.0;
     const aboveShoulders = (h: { tip: Pt }, b: FrameFeat) => h.tip.y < b.shY;
     switch (kind) {
-      case "hallo":
-        // a hand up at head height (beside or in front of the head) with some motion
-        return this.count((h, b) => aboveShoulders(h, b) && Math.abs(h.tip.x) < 1.6) >= 5 && motion > 0.015;
+      case "hallo": {
+        // any hand at or above shoulder height near the head, moving left-right (scale- and mirror-free)
+        const up = this.buf.flatMap((b) => b.hands.filter((h) => h.tip.y < b.shY + 0.15 && Math.abs(h.tip.x) < 2.0).map((h) => h.tip.x));
+        return up.length >= 4 && Math.max(...up) - Math.min(...up) > 0.12 && motion > 0.008;
+      }
       case "kopf":
         // any hand above the shoulder line near the head
         return this.count((h, b) => aboveShoulders(h, b) && nearHead(h)) >= 4;
