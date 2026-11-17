@@ -1,0 +1,26 @@
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 10px; }
+.mode { font-size: 1.1rem; font-weight: 700; padding: 14px 10px; min-height: 56px; border-radius: 12px; border: 2px solid var(--ink-3); background: var(--ink-2); color: var(--paper); }
+.mode.active { border-color: var(--coral); background: var(--coral); color: var(--ink); }
+.pane[hidden] { display: none; }
+.signing-dot { position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.6); color: var(--coral); font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.sentence-box { background: var(--ink-2); border-radius: 12px; padding: 12px 14px; }
+.sentence-box .label { margin: 0 0 4px; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.sentence { margin: 0; font-size: clamp(1.5rem, 7vw, 2.2rem); font-weight: 800; line-height: 1.25; word-break: break-word; }
+.sentence .w { display: inline-block; margin-right: 0.35em; }
+.sentence .w small { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+.sentence .w.low { color: var(--warn); }
+.sentence .w.new { animation: pop 0.6s ease-out; }
+.sentence-en { margin: 6px 0 0; color: var(--sky); }
+.muted { color: var(--muted); font-weight: 400; }
+.known { color: var(--muted); font-size: 0.85rem; }
+.avatar-stage { aspect-ratio: 3 / 4; max-height: 60vh; }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.quick button { font-size: 1rem; }
+.reply-row { display: flex; gap: 8px; }
+.reply-row input { flex: 1; min-width: 0; font: inherit; font-size: 1.05rem; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--muted); background: var(--ink-2); color: var(--paper); min-height: 48px; }
+.tokens { color: var(--muted); }
+.tokens .t { display: inline-block; margin-right: 6px; padding: 2px 8px; border-radius: 999px; background: var(--ink-2); }
+.tokens .t.sign { color: var(--paper); border: 1px solid var(--coral); }
+.tokens .t.now { background: var(--coral); color: var(--ink); }
+.exp a { color: var(--sky); font-weight: 700; }
+.exp { font-size: 0.9rem; }

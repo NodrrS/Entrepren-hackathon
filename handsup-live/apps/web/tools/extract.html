@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:" />
+    <title>Hands Up landmark extraction (dev only)</title>
+  </head>
+  <body style="background:#14161a;color:#f4f1ea;font-family:system-ui">
+    <h1>Landmark extraction (dev only, never deployed)</h1>
+    <p id="status">Loading…</p>
+    <video id="v" muted playsinline width="320"></video>
+    <script type="module" src="/src/tools/extract.ts"></script>
+  </body>
+</html>

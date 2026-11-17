@@ -53,3 +53,6 @@ apps/web/public/demo/
 # handsupai.com deploy folder (holds model files; built by scripts/build-handsupai.mjs)
 deploy/handsupai/public/
 deploy/handsupai/.wrangler/
+
+# /pharmacy demo data (PopSign-derived landmarks; built by scripts/build-pharmacy-signs.mjs)
+apps/web/public/pharmacy/
