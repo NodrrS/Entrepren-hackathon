@@ -21,6 +21,17 @@ export function SettingsSheet({ s, onClose, onCounter }: { s: Session; onClose: 
             {SOURCE_NOTES[s.source]}. The real sign model only knows German weather-forecast signs, so everyday signing mostly gives wrong or no words.
           </p>
         </div>
+        {s.source === "camera" && (
+          <div className="space-y-1">
+            <p className="m-0 text-sm font-semibold text-muted-foreground">Camera</p>
+            <div role="radiogroup" aria-label="Camera" className="inline-flex rounded-full border border-border bg-secondary p-1">
+              {([["user", "Front"], ["environment", "Back"]] as const).map(([v, t]) => (
+                <button key={v} type="button" role="radio" aria-checked={s.real.facing === v} onClick={() => void s.real.setFacing(v)}
+                  className={`h-10 min-w-11 rounded-full px-4 text-[15px] font-medium ${s.real.facing === v ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{t}</button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="space-y-1">
           <p className="m-0 text-sm font-semibold text-muted-foreground">Language</p>
           <LangToggle value={s.lang} onChange={s.setLang} label="Language" />

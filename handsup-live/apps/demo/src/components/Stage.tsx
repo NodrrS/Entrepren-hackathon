@@ -1,9 +1,10 @@
 import type { ReactNode, RefObject } from "react";
+import { SwitchCamera } from "lucide-react";
 import { LogoMark } from "./Logo";
 import { cn } from "@/lib/utils";
 
 /** The dark camera stage of mockup 4: status label, skeleton toggle, video + skeleton canvas, caption card at the bottom. */
-export function Stage({ videoRef, canvasRef, running, hint, label, showSkeleton, onToggleSkeleton, drag, dropHandlers, caption, figure, className }: {
+export function Stage({ videoRef, canvasRef, running, hint, label, showSkeleton, onToggleSkeleton, onFlip, flipLabel, drag, dropHandlers, caption, figure, className }: {
   videoRef: RefObject<HTMLVideoElement>;
   canvasRef: RefObject<HTMLCanvasElement>;
   running: boolean;
@@ -12,6 +13,9 @@ export function Stage({ videoRef, canvasRef, running, hint, label, showSkeleton,
   label: string;
   showSkeleton: boolean;
   onToggleSkeleton: () => void;
+  /** Shown while the camera runs: switch between front and back camera. */
+  onFlip?: (() => void) | undefined;
+  flipLabel?: string | undefined;
   drag: boolean;
   dropHandlers: Record<string, unknown>;
   caption: ReactNode;
@@ -29,10 +33,17 @@ export function Stage({ videoRef, canvasRef, running, hint, label, showSkeleton,
           <span className={cn("h-2.5 w-2.5 rounded-full", running ? "bg-primary" : "bg-white/40")} aria-hidden="true" />
           {label}
         </span>
+        <div className="flex gap-2">
+        {onFlip && (
+          <button type="button" onClick={onFlip} aria-label={flipLabel} className="inline-flex min-h-11 items-center gap-1.5 rounded-[22px] bg-stage-chip px-4 text-sm font-semibold text-white hover:bg-white/20">
+            <SwitchCamera className="h-4 w-4" aria-hidden="true" />Flip camera
+          </button>
+        )}
         <button type="button" onClick={onToggleSkeleton} aria-pressed={!showSkeleton}
           className="min-h-11 rounded-[22px] bg-stage-chip px-4 text-sm font-semibold text-white hover:bg-white/20">
           {showSkeleton ? "Hide skeleton" : "Show skeleton"}
         </button>
+        </div>
       </div>
       {/* The video gets its own area: the caption card below never covers the signer. */}
       <div className="relative min-h-[14rem] flex-1 overflow-hidden rounded-xl">
