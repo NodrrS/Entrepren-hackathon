@@ -17,13 +17,14 @@ export async function speak(text: string, lang: Lang, signal?: AbortSignal): Pro
   return res.blob();
 }
 
-/** Is the voice service reachable from the server? */
-export async function checkVoice(): Promise<boolean> {
+/** Which server-side services answer: the voice (speech) and the LLM (sentences). */
+export async function checkHealth(): Promise<{ voice: boolean; llm: boolean }> {
   try {
     const res = await fetch("/api/health");
-    if (!res.ok) return false;
-    return ((await res.json()) as { ok?: boolean }).ok === true;
+    if (!res.ok) return { voice: false, llm: false };
+    const d = (await res.json()) as { ok?: boolean; llm?: boolean };
+    return { voice: d.ok === true, llm: d.llm === true };
   } catch {
-    return false;
+    return { voice: false, llm: false };
   }
 }

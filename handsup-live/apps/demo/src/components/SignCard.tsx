@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Upload, Play, Square, Volume2, VolumeX } from "lucide-react";
-import { useRecognizer, type Lang } from "@/lib/recognizer";
-import { checkVoice } from "@/lib/speech";
+import { useRecognizer, type CaptionLine, type Lang } from "@/lib/recognizer";
+import { checkHealth } from "@/lib/speech";
+import { rewrite } from "@/lib/rewrite";
 import { Card, Chip, Equalizer, LangToggle, Pill, Switch } from "./Controls";
-import { Captions } from "./Captions";
+import { Captions, type SentenceState } from "./Captions";
 import { LogoMark } from "./Logo";
 import { useSpeechQueue } from "./useSpeechQueue";
 import { cn } from "@/lib/utils";
@@ -12,23 +13,67 @@ export function captionText(line: { de: string; en: string }, lang: Lang) {
   return lang === "en" ? line.en.replace(/[?·]/g, " ").replace(/\s+/g, " ").trim() : line.de.replace(/-/g, " ");
 }
 
+/** Raw words for a rewrite request: the glosses, plus the model's rough English hints for the English prompt. */
+function rewriteInput(line: CaptionLine, lang: Lang) {
+  return { glosses: line.de, hints: lang === "en" ? line.en.replace(/\s+/g, " ").trim() : "" };
+}
+
 export function SignCard({ className }: { className?: string | undefined }) {
   const r = useRecognizer();
   const [lang, setLang] = useState<Lang>("en");
   const [speakOn, setSpeakOn] = useState(true);
   const [muted, setMuted] = useState(false);
   const [voiceOk, setVoiceOk] = useState(false);
+  const [llmOk, setLlmOk] = useState(false);
+  const [sentences, setSentences] = useState<Record<number, SentenceState>>({});
   const [drag, setDrag] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { enqueue, playing } = useSpeechQueue(muted);
-  const settings = useRef({ lang, speakOn });
-  settings.current = { lang, speakOn };
+  const settings = useRef({ lang, speakOn, llmOk });
+  settings.current = { lang, speakOn, llmOk };
+  const latest = useRef<CaptionLine[]>([]);
+  latest.current = r.lines;
+  // Finished lines are rewritten and spoken strictly in order: each waits for the one before it.
+  const chain = useRef<Promise<void>>(Promise.resolve());
 
-  useEffect(() => { checkVoice().then(setVoiceOk).catch(() => setVoiceOk(false)); }, []);
+  useEffect(() => {
+    const poll = () => checkHealth().then((h) => { setVoiceOk(h.voice); setLlmOk(h.llm); });
+    poll();
+    const t = setInterval(poll, 30_000);
+    return () => clearInterval(t);
+  }, []);
+
   useEffect(() => r.onLineFinal((line) => {
-    if (settings.current.speakOn) enqueue(captionText(line, settings.current.lang), settings.current.lang);
+    chain.current = chain.current.then(async () => {
+      const { lang: l, speakOn: speak, llmOk: llm } = settings.current;
+      let text = captionText(line, l);
+      if (llm) {
+        setSentences((s) => ({ ...s, [line.id]: "pending" }));
+        try {
+          const inp = rewriteInput(line, l);
+          const out = await rewrite(inp.glosses, inp.hints, l);
+          setSentences((s) => ({ ...s, [line.id]: { text: out.sentence, ms: out.ms, lang: l } }));
+          text = out.sentence;
+        } catch {
+          setSentences((s) => ({ ...s, [line.id]: "failed" }));
+        }
+      }
+      if (speak) enqueue(text, l);
+    });
   }), [r.onLineFinal, enqueue]);
+
+  // Switching the language rewrites the newest finished line again so the caption matches (it is not spoken again).
+  useEffect(() => {
+    const line = [...latest.current].reverse().find((x) => x.final);
+    if (!line || !settings.current.llmOk) return;
+    const cur = sentences[line.id];
+    if (typeof cur !== "object" || cur.lang === lang) return;
+    const { glosses, hints } = rewriteInput(line, lang);
+    rewrite(glosses, hints, lang)
+      .then((out) => setSentences((s) => ({ ...s, [line.id]: { text: out.sentence, ms: out.ms, lang } })))
+      .catch(() => {});
+  }, [lang]);
 
   const ready = r.phase === "ready";
   const running = r.mode !== "idle";
@@ -72,16 +117,17 @@ export function SignCard({ className }: { className?: string | undefined }) {
         <div className="flex flex-wrap gap-2 pt-1">
           <Chip ok={ready}>Model ready</Chip>
           <Chip ok={voiceOk}>Voice ready</Chip>
+          <Chip ok={llmOk}>Sentences ready</Chip>
         </div>
       </div>
 
-      <div className="mt-5"><Captions lines={r.lines} /></div>
+      <div className="mt-5"><Captions lines={r.lines} sentences={sentences} lang={lang} /></div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <LangToggle value={lang} onChange={setLang} label="Spoken language" />
         <Switch checked={speakOn} onChange={setSpeakOn} label="Speak captions" />
         <button type="button" onClick={() => setMuted(!muted)} aria-pressed={muted} aria-label={muted ? "Unmute" : "Mute"}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-secondary hover:bg-accent">
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-secondary hover:bg-accent">
           {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
         </button>
         <Equalizer active={playing && !muted} />

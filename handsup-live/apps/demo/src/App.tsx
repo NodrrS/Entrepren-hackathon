@@ -14,7 +14,7 @@ export function App() {
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
             Sign it. Read it. <span className="text-primary">Hear it.</span>
           </h1>
-          <p className="mt-4 max-w-xl text-lg text-muted-foreground">Your signing is recognised right on your device, and the text is spoken aloud.</p>
+          <p className="mt-4 max-w-xl text-lg text-muted-foreground">Your signing is recognised right on your device, turned into a plain sentence, and spoken aloud.</p>
         </section>
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <SignCard />
@@ -22,7 +22,7 @@ export function App() {
         </div>
       </main>
       <footer className="mx-auto mt-16 max-w-6xl space-y-2 border-t border-border px-4 py-8 text-sm text-muted-foreground sm:px-8">
-        <p>Your video never leaves your device. Only the caption text is sent to generate speech.</p>
+        <p>Your video never leaves your device. Only the recognised words are sent to our own server to write the sentence and generate speech.</p>
         <p>
           Research demo. The sign model was trained on German Sign Language weather forecasts (PHOENIX-2014, non-commercial research use) and knows about
           1,200 signs, so everyday signing will mostly give wrong or no words.

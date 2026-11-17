@@ -22,9 +22,10 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
       <button
         type="button" role="switch" aria-checked={checked} aria-label={label}
         onClick={() => onChange(!checked)}
-        className={cn("relative h-6 w-10 rounded-full border border-border transition-colors", checked ? "bg-primary" : "bg-secondary")}
+        className="relative inline-flex h-11 w-14 items-center justify-center"
       >
-        <span className={cn("absolute top-0.5 left-0.5 h-[18px] w-[18px] rounded-full bg-foreground transition-transform", checked && "translate-x-4 bg-primary-foreground")} />
+        <span className={cn("absolute top-1/2 left-1/2 h-6 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border transition-colors", checked ? "border-primary bg-primary" : "bg-secondary")} />
+        <span className={cn("absolute top-1/2 left-[calc(50%-18px)] h-[18px] w-[18px] -translate-y-1/2 rounded-full bg-foreground transition-transform", checked && "translate-x-4")} />
       </button>
       <span aria-hidden="true">{label}</span>
     </label>
@@ -38,7 +39,7 @@ export function LangToggle({ value, onChange, label }: { value: Lang; onChange: 
       {opts.map(([v, t]) => (
         <button
           key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
-          className={cn("h-8 rounded-full px-4 text-sm font-medium transition-colors", value === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+          className={cn("h-11 rounded-full px-5 text-sm font-medium transition-colors", value === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
         >{t}</button>
       ))}
     </div>
@@ -67,7 +68,7 @@ export function Equalizer({ active }: { active: boolean }) {
 export function Card({ title, className, children }: { title: string; className?: string | undefined; children: React.ReactNode }) {
   const id = title.replace(/\W+/g, "-").toLowerCase();
   return (
-    <section aria-labelledby={id} className={cn("min-w-0 rounded-3xl border border-border bg-card p-5 sm:p-7", className)}>
+    <section aria-labelledby={id} className={cn("min-w-0 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-8", className)}>
       <h2 id={id} className="mb-5 text-lg font-semibold tracking-tight">{title}</h2>
       {children}
     </section>

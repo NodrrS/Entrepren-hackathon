@@ -1,16 +1,20 @@
 #!/usr/bin/env node
-// Hands Up demo server: serves the built page (dist/) and one narrow speech route.
+// Hands Up demo server: serves the built page (dist/) and two narrow routes: speech and sentence rewriting.
 //
-//   GET  /api/health  -> { ok: boolean }   whether the Voice Control service answers
-//   POST /api/tts     -> audio/wav         body { text: string (<= 400 chars), lang: "en" | "de" }
+//   GET  /api/health   -> { ok: boolean, llm: boolean }   whether Voice Control / the LLM gateway answer
+//   POST /api/tts      -> audio/wav     body { text: string (<= 400 chars), lang: "en" | "de" }
+//   POST /api/rewrite  -> { sentence, ms }   body { glosses: string, hints?: string, lang: "en" | "de" }
+//                         turns raw sign glosses into one natural sentence with an LLM (metacon, via LiteLLM)
 //
-// The Voice Control URL and key come from the environment (VOICE_CONTROL_URL, VOICE_CONTROL_API_KEY) and
-// never reach the browser. Only the text that is to be spoken is forwarded; camera video never gets here.
+// The Voice Control URL and key (VOICE_CONTROL_URL, VOICE_CONTROL_API_KEY) and the LLM gateway settings
+// (LLM_BASE_URL, LLM_API_KEY, LLM_MODEL) come from the environment and never reach the browser. Only the
+// recognised words and the text to be spoken are forwarded; camera video never gets here.
 // Nothing about requests (text, IPs) is logged.
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildMessages, cleanSentence } from "./rewrite-prompt.mjs";
 import { MAX_TEXT_CHARS, VOICES } from "./voices.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -20,11 +24,19 @@ const HOST = process.env.HOST ?? "127.0.0.1";
 const VC_URL = (process.env.VOICE_CONTROL_URL ?? "http://127.0.0.1:8765").replace(/\/+$/, "");
 const VC_KEY = process.env.VOICE_CONTROL_API_KEY ?? "";
 const vcHeaders = VC_KEY ? { Authorization: `Bearer ${VC_KEY}` } : {};
+// LLM gateway (LiteLLM on metacon, OpenAI-compatible). No default key: without one /api/rewrite answers 503
+// and the page falls back to the raw words.
+const LLM_URL = (process.env.LLM_BASE_URL ?? "http://metacon:4000/v1").replace(/\/+$/, "");
+const LLM_KEY = process.env.LLM_API_KEY ?? "";
+const LLM_MODEL = process.env.LLM_MODEL ?? "qwen3:8b";
+const llmHeaders = { Authorization: `Bearer ${LLM_KEY}` };
 
 const MAX_QUEUE = 4; // requests waiting for the single speech engine; more get a 503
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 30; // speech requests per client per minute
 const TTS_TIMEOUT_MS = 30_000;
+const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS ?? 6_000);
+const REWRITE_RATE_MAX = 40; // rewrite requests per client per minute
 
 // ---------------------------------------------------------------- helpers
 const TYPES = {
@@ -87,10 +99,10 @@ function clientId(req) {
 
 // ---------------------------------------------------------------- rate limit (in memory, per client)
 const hits = new Map();
-function rateLimited(id) {
+function rateLimited(id, max = RATE_MAX) {
   const now = Date.now();
   const list = (hits.get(id) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  if (list.length >= RATE_MAX) {
+  if (list.length >= max) {
     hits.set(id, list);
     return true;
   }
@@ -158,6 +170,73 @@ async function voiceUp() {
   return ok;
 }
 
+let llmCache = { at: 0, ok: false };
+async function llmUp() {
+  if (!LLM_KEY) return false;
+  if (Date.now() - llmCache.at < 5000) return llmCache.ok;
+  let ok = false;
+  try {
+    const r = await fetch(`${LLM_URL}/models`, { headers: llmHeaders, signal: AbortSignal.timeout(3000) });
+    ok = r.ok;
+  } catch {
+    ok = false;
+  }
+  llmCache = { at: Date.now(), ok };
+  return ok;
+}
+
+async function rewriteSentence(glosses, hints, lang) {
+  const res = await fetch(`${LLM_URL}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...llmHeaders },
+    body: JSON.stringify({
+      model: LLM_MODEL,
+      messages: buildMessages(glosses, hints, lang),
+      temperature: 0,
+      seed: 42,
+      max_tokens: 120,
+      think: false,
+    }),
+    signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    const err = new Error(`llm gateway answered ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  return cleanSentence(data?.choices?.[0]?.message?.content);
+}
+
+async function handleRewrite(req, res) {
+  if (!LLM_KEY) return json(res, 503, { error: "Sentences are not set up on this server." });
+  if (!(req.headers["content-type"] ?? "").includes("application/json")) return json(res, 415, { error: "send JSON" });
+  if (rateLimited(`rw:${clientId(req)}`, REWRITE_RATE_MAX)) return json(res, 429, { error: "Too many requests. Try again in a minute." });
+  let body;
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (e) {
+    return json(res, e.status === 413 ? 413 : 400, { error: "invalid request body" });
+  }
+  const glosses = typeof body?.glosses === "string" ? body.glosses.trim() : "";
+  const hints = typeof body?.hints === "string" ? body.hints.trim() : "";
+  const lang = body?.lang;
+  if (!glosses) return json(res, 400, { error: "glosses is empty" });
+  if (glosses.length > MAX_TEXT_CHARS || hints.length > MAX_TEXT_CHARS) return json(res, 400, { error: `text is longer than ${MAX_TEXT_CHARS} characters` });
+  if (lang !== "en" && lang !== "de") return json(res, 400, { error: 'lang must be "en" or "de"' });
+
+  const t0 = Date.now();
+  try {
+    const sentence = (await rewriteSentence(glosses, hints, lang)).slice(0, MAX_TEXT_CHARS);
+    if (!sentence) return json(res, 502, { error: "The sentence service gave no answer." });
+    json(res, 200, { sentence, ms: Date.now() - t0 });
+  } catch (e) {
+    const timeout = e?.name === "TimeoutError" || e?.name === "AbortError";
+    console.error(`rewrite failed: ${timeout ? "timeout" : (e?.message ?? "error")}`);
+    json(res, timeout ? 504 : 502, { error: "The sentence service is not available right now." });
+  }
+}
+
 async function handleTts(req, res) {
   if (!(req.headers["content-type"] ?? "").includes("application/json")) return json(res, 415, { error: "send JSON" });
   if (rateLimited(clientId(req))) return json(res, 429, { error: "Too many requests. Try again in a minute." });
@@ -217,7 +296,14 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", "http://local");
     const p = url.pathname;
-    if (p === "/api/health" && req.method === "GET") return json(res, 200, { ok: await voiceUp() });
+    if (p === "/api/health" && req.method === "GET") {
+      const [ok, llm] = await Promise.all([voiceUp(), llmUp()]);
+      return json(res, 200, { ok, llm });
+    }
+    if (p === "/api/rewrite") {
+      if (req.method !== "POST") return json(res, 405, { error: "POST only" });
+      return await handleRewrite(req, res);
+    }
     if (p === "/api/tts") {
       if (req.method !== "POST") return json(res, 405, { error: "POST only" });
       return await handleTts(req, res);
@@ -233,5 +319,7 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Hands Up demo on http://${HOST}:${PORT} (voice service ${VC_KEY ? "with key" : "without key"}; serving ${DIST})`);
+  console.log(`Hands Up demo on http://${HOST}:${PORT} (voice service ${VC_KEY ? "with key" : "without key"}; sentences ${LLM_KEY ? `via ${LLM_MODEL}` : "off (no LLM_API_KEY)"}; serving ${DIST})`);
+  // Load the model now so the first visitor does not wait for a cold start.
+  if (LLM_KEY) rewriteSentence("MORGEN WETTER", "", "en").catch(() => {});
 });

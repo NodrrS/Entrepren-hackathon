@@ -1,14 +1,19 @@
 # Hands Up demo (sign video → text → speech)
 
 A festival demo page: sign to the camera, upload a clip, or play the built-in demo clip; the signing is turned into
-text **on the device** (the same MediaPipe + fc10 pipeline as live.handsupai.com), and each finished caption line is
-**spoken aloud** by the Voice Control service. A second box turns typed text into speech.
+text **on the device** (the same MediaPipe + fc10 pipeline as live.handsupai.com). The sign model outputs raw
+German Sign Language glosses (`MORGEN WETTER WIE-AUSSEHEN ...`), so each finished caption line is first rewritten
+by an **LLM into one natural sentence** (English or German), shown large under the gloss chips with a latency badge,
+and then **spoken aloud** by the Voice Control service. A second box turns typed text into speech.
 
 ```
 Browser ── MediaPipe + fc10 (on device, video never leaves it)
-   │  caption text only
-   └── POST /api/tts ──► server/index.mjs (this Mac) ──► Voice Control (Tailscale, key stays server-side)
+   │  recognised words only
+   ├── POST /api/rewrite ─► server/index.mjs (this Mac) ─► LiteLLM gateway on metacon (Tailscale, key stays server-side)
+   └── POST /api/tts ─────►                              ─► Voice Control (Tailscale, key stays server-side)
 ```
+
+If the LLM is unreachable or `LLM_API_KEY` is not set, the page falls back to the raw words (as before) and still speaks.
 
 ## Run it locally
 
@@ -20,6 +25,10 @@ npm install
 export FC10_DIR="$(pwd)/../HandsUp-models/fc10"
 export VOICE_CONTROL_URL=...        # the Voice Control address (Tailscale)
 export VOICE_CONTROL_API_KEY=...    # never commit or print it
+# Sentences (optional): the metacon LiteLLM gateway. Needs Tailscale and a per-person key.
+export LLM_BASE_URL=http://metacon:4000/v1   # default
+export LLM_MODEL=qwen3:8b                     # default
+export LLM_API_KEY="$(security find-generic-password -s metacon-llm -a "$USER" -w)"   # macOS Keychain; never commit or print it
 npm run build -w @handsup/demo      # syncs + SHA-checks the model files, then builds dist/
 npm start -w @handsup/demo          # http://127.0.0.1:8810 (PORT / HOST override)
 ```
@@ -32,12 +41,19 @@ npm start -w @handsup/demo          # http://127.0.0.1:8810 (PORT / HOST overrid
 |---|---|
 | `src/lib/recognizer/engine.ts` | Camera, uploaded clip and demo clip → MediaPipe → fc10 → caption lines. **The seam for the future recognition API:** replace this class (same `Snapshot` / actions) with one that calls the API. |
 | `src/lib/recognizer.ts` | `useRecognizer()` React hook over the engine. |
-| `src/lib/speech.ts` | `speak(text, lang)` and `checkVoice()` → `/api/tts`, `/api/health`. |
+| `src/lib/speech.ts` | `speak(text, lang)` and `checkHealth()` → `/api/tts`, `/api/health` (voice and LLM status). |
+| `src/lib/rewrite.ts` | `rewrite(glosses, hints, lang)` → `/api/rewrite`, one natural sentence for a caption line. |
 | `src/lib/shared/` | Small helpers copied from `apps/web` (skeleton overlay, network guard, demo-clip parser, camera help). |
-| `server/index.mjs` | Static files + the two API routes; 400-character cap, one speech job at a time, per-client rate limit, fixed voices (`server/voices.mjs`). |
+| `server/index.mjs` | Static files + the API routes (`/api/tts`, `/api/rewrite`, `/api/health`); 400-character cap, one speech job at a time, per-client rate limits, fixed voices (`server/voices.mjs`). |
+| `server/rewrite-prompt.mjs` | The gloss → sentence prompt (system message + few-shot examples per language) and the answer cleaner. |
 | `scripts/sync-assets.mjs` | Copies the model and runtime files into `public/` (git-ignored) and checks every SHA-256 against `apps/web/*-assets.json`. |
 
 ## Notes
+
+- The rewrite needs the LLM gateway, which is only reachable over Tailscale. It works where this server runs on
+  the Mac (local and the alpharelay tunnel); dev.handsupai.com serves `apps/web` and is not affected. The gateway
+  logs each request (the glosses and the answer) under the key's name. Only the recognised words are sent.
+- Lines are rewritten and spoken strictly in order. Switching the language re-writes the newest caption only.
 
 - Uploaded clips play at normal speed and are read through `captureStream()` (Chrome, Edge, Firefox, Android). Safari
   and iOS can use the camera and the demo clip.
