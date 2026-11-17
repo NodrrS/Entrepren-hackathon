@@ -35,13 +35,15 @@ def job(args: tuple[str, str]) -> str:
         ok = cap.grab()
         if not ok:
             break
-        # keep the source frame nearest to each 25 FPS tick
+        # keep the source frame nearest to each 25 FPS tick (repeated when the source is slower than 25 FPS)
         if i >= round(k * rate / FPS):
             ok, img = cap.retrieve()
             if not ok:
                 break
-            cv2.imwrite(str(dst / f"{k:04d}.jpg"), cv2.resize(img, size, interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 85])
-            k += 1
+            small = cv2.resize(img, size, interpolation=cv2.INTER_AREA)
+            while i >= round(k * rate / FPS):
+                cv2.imwrite(str(dst / f"{k:04d}.jpg"), small, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                k += 1
         i += 1
     cap.release()
     (dst / "meta.json").write_text(json.dumps({"frames": k, "fps": FPS, "width": w, "height": h}), encoding="utf-8")

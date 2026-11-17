@@ -26,6 +26,11 @@ jobs:
       - run: npm run build -w @handsup/web
         env:
           FC10_DIR: ${{ github.workspace }}/models/fc10
+      # The team app (apps/demo) at "/", with /live/ and /pharmacy/ from apps/web (deploy/dev/merge.mjs)
+      - run: npm run build -w @handsup/demo
+        env:
+          FC10_DIR: ${{ github.workspace }}/models/fc10
+      - run: node deploy/dev/merge.mjs
       - name: Deploy
         working-directory: handsup-live/deploy/dev
         run: npx --yes wrangler@4.144.0 deploy

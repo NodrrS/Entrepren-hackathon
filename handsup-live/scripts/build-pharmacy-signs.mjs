@@ -45,7 +45,7 @@ function loadClips() {
   return clips;
 }
 
-const clips = loadClips().filter((c) => c.frames.some((f) => f.present[1] || f.present[2]));
+const clips = loadClips().filter((c) => c.split !== "dgs" && c.frames.some((f) => f.present[1] || f.present[2])); // dgs/: SignDict, built by build-pharmacy-dgs.mjs
 const signs = [...new Set(clips.map((c) => c.sign))].sort();
 console.log(`${clips.length} clips with hands, ${signs.length} signs: ${signs.map((s) => `${s}(${clips.filter((c) => c.sign === s).length})`).join(" ")}`);
 
