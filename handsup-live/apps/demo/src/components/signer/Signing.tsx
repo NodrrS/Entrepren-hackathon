@@ -57,7 +57,7 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
         <div className="flex items-center justify-between gap-3">
           <span className="flex items-center gap-2 text-sm font-semibold text-white">
             <span className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
-            Reading your signs
+            {s.source === "weather" ? (s.forecastDone ? "Forecast finished" : `Weather forecast · clip ${(s.weatherClip ?? 0) + 1} of 3`) : "Reading your signs"}
           </span>
           <button type="button" onClick={onEnd} className="min-h-11 rounded-full bg-white px-5 text-[15px] font-semibold text-ink">End</button>
         </div>

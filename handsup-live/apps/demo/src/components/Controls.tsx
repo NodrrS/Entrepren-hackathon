@@ -68,15 +68,22 @@ export function Equalizer({ active }: { active: boolean }) {
   );
 }
 
-/** Live camera or the scripted example (Mock mode), as two clear options. */
-export function SourceToggle({ useMock, onChange, className }: { useMock: boolean; onChange: (mock: boolean) => void; className?: string | undefined }) {
-  const opts: Array<[boolean, string]> = [[false, "Live camera"], [true, "Scripted example"]];
+export type SourceChoice = "camera" | "weather" | "pharmacy";
+export const SOURCE_LABELS: Record<SourceChoice, string> = { camera: "Live camera", weather: "Weather", pharmacy: "Pharmacy" };
+export const SOURCE_NOTES: Record<SourceChoice, string> = {
+  camera: "Front camera · German weather-forecast signs",
+  weather: "A recorded weather forecast, read by the real model",
+  pharmacy: "A scripted pharmacy conversation, no camera",
+};
+
+/** What to translate: the live camera, the recorded weather forecast (real model), or the scripted pharmacy example. */
+export function SourceToggle({ value, onChange, className }: { value: SourceChoice; onChange: (v: SourceChoice) => void; className?: string | undefined }) {
   return (
-    <div role="radiogroup" aria-label="What to translate" className={cn("grid grid-cols-2 rounded-full border border-border bg-secondary p-1", className)}>
-      {opts.map(([v, t]) => (
-        <button key={t} type="button" role="radio" aria-checked={useMock === v} onClick={() => onChange(v)}
-          className={cn("h-11 rounded-full px-4 text-[15px] font-semibold transition-colors", useMock === v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}>
-          {t}
+    <div role="radiogroup" aria-label="What to translate" className={cn("grid grid-cols-3 rounded-full border border-border bg-secondary p-1", className)}>
+      {(Object.keys(SOURCE_LABELS) as SourceChoice[]).map((v) => (
+        <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
+          className={cn("h-11 rounded-full px-2 text-[14px] font-semibold whitespace-nowrap transition-colors", value === v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}>
+          {SOURCE_LABELS[v]}
         </button>
       ))}
     </div>

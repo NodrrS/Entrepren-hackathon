@@ -6,7 +6,7 @@ import type { Session } from "@/lib/useSession";
 import { fetchVideo } from "@/lib/videoLink";
 import { cn } from "@/lib/utils";
 import { Captions } from "./Captions";
-import { Equalizer, LangToggle, Pill, SourceToggle, Switch } from "./Controls";
+import { Equalizer, LangToggle, Pill, SOURCE_NOTES, SourceToggle, Switch } from "./Controls";
 import { Conversation, type Bubble } from "./Conversation";
 import { CustomerView } from "./CustomerView";
 import { HoldToSpeak } from "./HoldToSpeak";
@@ -70,7 +70,9 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
     return { key: m.key, who: m.who, text: typeof st === "object" ? st.text : st === "pending" ? "…" : m.text };
   });
   const newest = s.lines.at(-1);
-  const stageLabel = s.useMock
+  const stageLabel = s.source === "weather"
+    ? s.weatherClip !== null ? `Weather forecast · clip ${s.weatherClip + 1} of 3` : s.forecastDone ? "Forecast finished" : s.ready ? "Ready" : "Loading the model…"
+    : s.useMock
     ? s.running ? "Scripted example playing" : "Ready"
     : r.mode === "camera" ? "Signing live" : r.mode === "demo" ? `Example ${(example ?? 0) + 1} playing` : r.mode === "upload" ? "Reading your clip" : s.ready ? "Ready" : "Loading the model…";
   const allUp = s.ready && s.voiceOk && s.llmOk;
@@ -136,15 +138,15 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
                 <Pill variant="primary" onClick={s.stop}><Square className="h-4 w-4" />Stop</Pill>
               ) : (
                 <Pill variant="primary" disabled={!s.ready} onClick={() => run(() => s.start())}>
-                  <Video className="h-4 w-4" />{!s.ready ? `Loading the model… ${Math.round(r.progress * 100)}%` : s.useMock ? "Start example" : "Start camera"}
+                  <Video className="h-4 w-4" />{!s.ready ? `Loading the model… ${Math.round(r.progress * 100)}%` : { camera: "Start camera", weather: "Play the forecast", pharmacy: "Start example" }[s.source]}
                 </Pill>
               )}
-              <SourceToggle useMock={s.useMock} onChange={s.setUseMock} className="w-full max-w-sm" />
+              <SourceToggle value={s.source} onChange={s.setSource} className="w-full max-w-md" />
             </div>
-            {s.useMock && <p className="m-0 text-sm text-muted-foreground">The scripted example plays a short pharmacy conversation without a camera. Choose Live camera to sign yourself, play the recorded examples or use your own video.</p>}
+            <p className="m-0 text-sm text-muted-foreground">{SOURCE_NOTES[s.source]}.{s.source !== "camera" && " Choose Live camera to sign yourself, play single clips or use your own video."}</p>
           </section>
 
-          {!s.useMock && (
+          {s.source === "camera" && (
             <>
               <section aria-labelledby="examples-h" className="space-y-2">
                 <h2 id="examples-h" className={SECTION}>Examples</h2>

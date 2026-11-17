@@ -1,8 +1,8 @@
 import { HowItWorks } from "../HowItWorks";
-import { LangToggle, SourceToggle, Switch } from "../Controls";
+import { LangToggle, SOURCE_NOTES, SourceToggle, Switch } from "../Controls";
 import type { Session } from "@/lib/useSession";
 
-/** Settings on the signer's phone: live camera or scripted example, speech, skeleton, language, how it works, and the counter view. */
+/** Settings on the signer's phone: what to translate, speech, skeleton, language, how it works, and the counter view. */
 export function SettingsSheet({ s, onClose, onCounter }: { s: Session; onClose: () => void; onCounter: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onClose}>
@@ -14,9 +14,9 @@ export function SettingsSheet({ s, onClose, onCounter }: { s: Session; onClose: 
         </div>
 
         <div className="space-y-1">
-          <SourceToggle useMock={s.useMock} onChange={s.setUseMock} />
+          <SourceToggle value={s.source} onChange={s.setSource} />
           <p className="m-0 text-sm text-muted-foreground">
-            {s.useMock ? "Plays a short pharmacy conversation. Turn it off to use the camera and the real sign model (it only knows German weather-forecast signs)." : "Using the camera and the real sign model. It only knows German weather-forecast signs, so everyday signing mostly gives wrong or no words."}
+            {SOURCE_NOTES[s.source]}. The real sign model only knows German weather-forecast signs, so everyday signing mostly gives wrong or no words.
           </p>
         </div>
         <div className="space-y-1">

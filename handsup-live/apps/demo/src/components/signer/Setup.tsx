@@ -1,7 +1,7 @@
 import { Settings, Video } from "lucide-react";
 import type { Session } from "@/lib/useSession";
 import { Logo } from "../Logo";
-import { SourceToggle } from "../Controls";
+import { SOURCE_NOTES, SourceToggle } from "../Controls";
 import { cn } from "@/lib/utils";
 
 const STEPS = ["Front camera faces you", "Sign. Words appear for the staff", "Read the answer, your way"];
@@ -22,7 +22,9 @@ function Illustration() {
 }
 
 /** Screen 1 of the signer flow: how to stand the phone, reply style, language, Start. */
-export function Setup({ s, onStart, onExample, onSettings, starting }: { s: Session; onStart: () => void; onExample: () => void; onSettings: () => void; starting: boolean }) {
+const START: Record<Session["source"], string> = { camera: "Start camera", weather: "Play the forecast", pharmacy: "Start example" };
+
+export function Setup({ s, onStart, onSettings, starting }: { s: Session; onStart: () => void; onSettings: () => void; starting: boolean }) {
   const loading = !s.ready;
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col gap-3 px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -62,21 +64,16 @@ export function Setup({ s, onStart, onExample, onSettings, starting }: { s: Sess
 
       <div className="flex-1" />
 
-      <SourceToggle useMock={s.useMock} onChange={s.setUseMock} />
+      <SourceToggle value={s.source} onChange={s.setSource} />
       <p className="m-0 -mt-1 text-center text-[13px] text-muted-foreground">
-        {s.useMock ? "A pharmacy conversation, no camera needed" : "Front camera · German weather-forecast signs"}
+        {SOURCE_NOTES[s.source]}
       </p>
       {!s.useMock && !loading && s.real.statusKind !== "ok" && s.real.statusKind !== "info" && <p className="m-0 text-center text-sm text-destructive">{s.real.statusText}</p>}
       <button type="button" onClick={onStart} disabled={loading || starting}
         className={cn("inline-flex h-16 w-full items-center justify-center gap-3 rounded-full bg-primary text-[22px] font-bold text-primary-foreground disabled:opacity-60")}>
         <Video className="h-6 w-6" aria-hidden="true" />
-        {loading ? `Loading the model… ${Math.round(s.real.progress * 100)}%` : s.useMock ? "Start example" : "Start camera"}
+        {loading ? `Loading the model… ${Math.round(s.real.progress * 100)}%` : START[s.source]}
       </button>
-      {!s.useMock && (
-        <button type="button" onClick={onExample} disabled={loading || starting} className="-my-1 min-h-11 text-[15px] font-medium text-link underline disabled:opacity-50">
-          No camera? Play a recorded signer
-        </button>
-      )}
       <p className="m-0 text-center text-[13px] text-muted-foreground">Nothing is recorded or uploaded.</p>
     </main>
   );
