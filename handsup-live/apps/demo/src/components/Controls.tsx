@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { Lang } from "@/lib/recognizer";
+import type { VoiceStyle } from "@/lib/speech";
 import type { ButtonHTMLAttributes } from "react";
 
 /** "ghost" is the mockup's outlined 48 px button (14 px radius); "primary" is the orange pill. */
@@ -84,6 +85,21 @@ export function SourceToggle({ value, onChange, className }: { value: SourceChoi
         <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
           className={cn("h-11 rounded-full px-2 text-[14px] font-semibold whitespace-nowrap transition-colors", value === v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}>
           {SOURCE_LABELS[v]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Which voice speaks: the default (main) voice, or one of two character voices. */
+export function VoiceToggle({ value, onChange, className }: { value: VoiceStyle; onChange: (v: VoiceStyle) => void; className?: string | undefined }) {
+  const opts: Array<[VoiceStyle, string]> = [["default", "Default"], ["c3po", "C-3PO"], ["snape", "Snape"]];
+  return (
+    <div role="radiogroup" aria-label="Voice" className={cn("inline-flex rounded-full border border-border bg-secondary p-1", className)}>
+      {opts.map(([v, t]) => (
+        <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
+          className={cn("h-10 min-w-11 rounded-full px-4 text-[15px] font-medium transition-colors", value === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+          {t}
         </button>
       ))}
     </div>

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { speak } from "@/lib/speech";
+import { speak, type VoiceStyle } from "@/lib/speech";
 import type { Lang } from "@/lib/recognizer";
 
 /** Speaks texts one at a time, in order. */
 export function useSpeechQueue(muted: boolean) {
-  const queue = useRef<Array<{ text: string; lang: Lang }>>([]);
+  const queue = useRef<Array<{ text: string; lang: Lang; voice: VoiceStyle }>>([]);
   const busy = useRef(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -19,7 +19,7 @@ export function useSpeechQueue(muted: boolean) {
       const item = queue.current.shift()!;
       setPlaying(true);
       try {
-        const blob = await speak(item.text, item.lang);
+        const blob = await speak(item.text, item.lang, item.voice);
         if (blob) {
           const url = URL.createObjectURL(blob);
           const a = (audio.current ??= new Audio());
@@ -34,9 +34,9 @@ export function useSpeechQueue(muted: boolean) {
     busy.current = false;
   }, []);
 
-  const enqueue = useCallback((text: string, lang: Lang) => {
+  const enqueue = useCallback((text: string, lang: Lang, voice: VoiceStyle = "default") => {
     if (!text.trim()) return;
-    queue.current.push({ text, lang });
+    queue.current.push({ text, lang, voice });
     void pump();
   }, [pump]);
 

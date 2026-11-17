@@ -1,5 +1,5 @@
 import { HowItWorks } from "../HowItWorks";
-import { LangToggle, SOURCE_NOTES, SourceToggle, Switch } from "../Controls";
+import { LangToggle, SOURCE_NOTES, SourceToggle, Switch, VoiceToggle } from "../Controls";
 import type { Session } from "@/lib/useSession";
 
 /** Settings on the signer's phone: what to translate, speech, skeleton, language, how it works, and the counter view. */
@@ -22,6 +22,10 @@ export function SettingsSheet({ s, onClose, onCounter }: { s: Session; onClose: 
         <div className="space-y-1">
           <p className="m-0 text-sm font-semibold text-muted-foreground">Language</p>
           <LangToggle value={s.lang} onChange={s.setLang} label="Language" />
+        </div>
+        <div className="space-y-1">
+          <p className="m-0 text-sm font-semibold text-muted-foreground">Voice</p>
+          <VoiceToggle value={s.voice} onChange={s.setVoice} />
         </div>
         <div className="flex flex-wrap gap-x-4">
           <Switch checked={s.speakOn} onChange={s.setSpeakOn} label="Say sentences aloud" />

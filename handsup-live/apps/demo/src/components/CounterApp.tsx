@@ -1,12 +1,12 @@
 import { useRef, useState } from "react";
-import { Link2, Loader2, RefreshCw, Smartphone, Square, Upload, Video, Volume2, VolumeX } from "lucide-react";
+import { Link2, Loader2, Pause, Play, RefreshCw, Smartphone, Square, Upload, Video, Volume2, VolumeX } from "lucide-react";
 import type { Crop } from "@/lib/recognizer";
 import { QUICK_COUNTER } from "@/lib/replies";
 import type { Session } from "@/lib/useSession";
 import { fetchVideo } from "@/lib/videoLink";
 import { cn } from "@/lib/utils";
 import { Captions } from "./Captions";
-import { Equalizer, LangToggle, Pill, SOURCE_NOTES, SourceToggle, Switch } from "./Controls";
+import { Equalizer, LangToggle, Pill, SOURCE_NOTES, SourceToggle, Switch, VoiceToggle } from "./Controls";
 import { Conversation, type Bubble } from "./Conversation";
 import { CustomerView } from "./CustomerView";
 import { HoldToSpeak } from "./HoldToSpeak";
@@ -71,7 +71,8 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
   });
   const newest = s.lines.at(-1);
   const stageLabel = s.source === "weather"
-    ? s.weatherClip !== null ? `Weather forecast · clip ${s.weatherClip + 1} of 3` : s.forecastDone ? "Forecast finished" : s.ready ? "Ready" : "Loading the model…"
+    ? s.weatherWaiting && s.weatherClip !== null ? `Weather forecast · paused after clip ${s.weatherClip + 1} of 3`
+      : s.weatherClip !== null ? `Weather forecast · clip ${s.weatherClip + 1} of 3` : s.forecastDone ? "Forecast finished" : s.ready ? "Ready" : "Loading the model…"
     : s.useMock
     ? s.running ? "Scripted example playing" : "Ready"
     : r.mode === "camera" ? "Signing live" : r.mode === "demo" ? `Example ${(example ?? 0) + 1} playing` : r.mode === "upload" ? "Reading your clip" : s.ready ? "Ready" : "Loading the model…";
@@ -135,7 +136,16 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
             <h2 id="session-h" className={SECTION}>Conversation</h2>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
               {s.running ? (
-                <Pill variant="primary" onClick={s.stop}><Square className="h-4 w-4" />Stop</Pill>
+                <>
+                  <Pill variant="primary" onClick={s.stop}><Square className="h-4 w-4" />Stop</Pill>
+                  {s.source === "weather" && (s.weatherWaiting ? (
+                    <Pill onClick={s.resumeWeather}><Play className="h-4 w-4" />Next clip ({(s.weatherClip ?? 0) + 2} of 3)</Pill>
+                  ) : s.weatherPaused ? (
+                    <Pill onClick={s.resumeWeather}><Play className="h-4 w-4" />Don&apos;t pause</Pill>
+                  ) : (
+                    <Pill onClick={s.pauseWeather}><Pause className="h-4 w-4" />Pause after this clip</Pill>
+                  ))}
+                </>
               ) : (
                 <Pill variant="primary" disabled={!s.ready} onClick={() => run(() => s.start())}>
                   <Video className="h-4 w-4" />{!s.ready ? `Loading the model… ${Math.round(r.progress * 100)}%` : { camera: "Start camera", weather: "Play the forecast", pharmacy: "Start example" }[s.source]}
@@ -193,6 +203,7 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
             <h2 id="speech-h" className={SECTION}>Speech</h2>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <LangToggle value={s.lang} onChange={s.setLang} label="Spoken language" />
+              <VoiceToggle value={s.voice} onChange={s.setVoice} />
               <Switch checked={s.speakOn} onChange={s.setSpeakOn} label="Speak captions" />
               <button type="button" onClick={() => s.setMuted(!s.muted)} aria-pressed={s.muted} aria-label={s.muted ? "Unmute" : "Mute"}
                 className="inline-flex h-12 w-12 items-center justify-center rounded-[14px] border border-border bg-card hover:bg-accent">
