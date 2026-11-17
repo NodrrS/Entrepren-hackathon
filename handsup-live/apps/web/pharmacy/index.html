@@ -18,24 +18,24 @@
     <header class="top">
       <div class="brand">
         <span class="logo" aria-hidden="true">✋</span>
-        <h1>Hands Up <span>Apotheke</span></h1>
+        <h1 class="apo-title"><span>Apotheke</span> <small>Hands Up</small></h1>
       </div>
       <span class="badge">Forschungsdemo</span>
     </header>
 
     <main>
       <p class="intro">
-        Ein gehörloser Kunde gebärdet, die Apotheke liest Text. Die Apotheke antwortet mit Text oder Sprache, und eine
-        Figur gebärdet die Antwort. <strong>Demo mit einigen Gebärden der Amerikanischen Gebärdensprache (ASL), noch nicht
-        DGS.</strong> Alles läuft auf diesem Gerät; das Video verlässt es nie.
+        Eine gehörlose Kundin kommt mit einem Rezept in die Apotheke. Sie gebärdet in <strong>Deutscher Gebärdensprache
+        (DGS)</strong>, die Apotheke liest Text; die Apotheke antwortet, und die Antwort erscheint als Gebärden.
+        Alles läuft auf diesem Gerät.
       </p>
 
       <div class="modes" role="tablist">
-        <button id="tab-reply" class="mode active" role="tab" aria-selected="true" type="button">💬 Antworten</button>
-        <button id="tab-sign" class="mode" role="tab" aria-selected="false" type="button">👋 Kunde gebärdet</button>
+        <button id="tab-customer" class="mode active" role="tab" aria-selected="true" type="button">👋 Kundin gebärdet</button>
+        <button id="tab-reply" class="mode" role="tab" aria-selected="false" type="button">💬 Apotheke antwortet</button>
       </div>
 
-      <section id="status" class="status" role="status" aria-live="polite">Lade die Modelle…</section>
+      <section id="status" class="status" role="status" aria-live="polite">Lade die Gebärden…</section>
 
       <section id="openin" class="panel openin" hidden>
         <p><strong>Dieser Browser kann die Kamera nicht nutzen.</strong> Bitte die Seite in Safari oder Chrome öffnen:</p>
@@ -43,43 +43,85 @@
         <div class="openin-actions"><button id="copy-link" type="button" class="primary">Link kopieren</button></div>
       </section>
 
-      <!-- A: customer signs -> text -->
-      <section id="pane-sign" class="pane" hidden>
-        <p class="panel warn exp"><strong>Experimentell.</strong> Die Erkennung vergleicht mit Beispielen von nur ein bis drei Personen pro Gebärde. Bei neuen Personen liegt sie heute meist daneben (Test mit 12 Gebärden: bei neuen Personen ca. 29 % richtig, bei denselben Personen 87 %). „Beispiel abspielen“ zeigt den Ablauf mit aufgezeichneten Skelettpunkten. Für fließendes Gebärden: <a href="/live/">Live-Demo (DGS-Wetter)</a>.</p>
-        <div id="stage" class="stage" data-mirrored="true">
-          <video id="video" playsinline webkit-playsinline muted autoplay></video>
-          <canvas id="overlay"></canvas>
-          <div id="placeholder" class="placeholder">
-            <div>
-              <button id="start-big" type="button" class="primary big">▶ Kamera starten</button>
-              <p>Gebärden einzeln zeigen und die Hände dazwischen kurz senken.</p>
-            </div>
+      <div class="viewbar" role="group" aria-label="Ansicht">
+        <span>Ansicht:</span>
+        <button type="button" data-view="video">Video</button>
+        <button type="button" data-view="skeleton">Skelett</button>
+        <button type="button" data-view="both" class="on">Beides</button>
+      </div>
+
+      <!-- shared DGS player: real sign video + skeleton person -->
+      <div id="player" class="player" data-view="both" data-card="false" hidden>
+        <div class="pv"><video id="dgs-video" playsinline webkit-playsinline muted></video><span class="tag">Video</span></div>
+        <div class="ps"><canvas id="dgs-skel"></canvas><span class="tag">Skelett</span></div>
+        <div class="card" id="card"><p class="card-word" id="card-word"></p><p class="card-label">Gebärde folgt</p></div>
+        <div class="player-cap"><p id="p-gloss" class="cap-de"></p><p id="p-word" class="cap-en"></p></div>
+      </div>
+
+      <!-- A: the customer signs -->
+      <section id="pane-customer" class="pane">
+        <div class="panel guided">
+          <p class="guided-title"><strong>Geführtes Szenario mit Kamera</strong></p>
+          <p class="fineprint">Geführtes Szenario: erkennt einfache Merkmale der erwarteten Gebärden (Handposition am Kopf oder vor der Brust, Bewegung), fließend ohne Pausen. Schritte mit „~“ zählen jede deutliche Gebärde; „Assistenz“ geht nach 1,5 s Gebärden weiter. Keine freie Erkennung.</p>
+          <div class="controls">
+            <button id="g-turn1" type="button" class="primary big-btn">▶ Teil 1: Kundin (Kamera)</button>
+            <button id="g-turn3" type="button">▶ Teil 3: „Danke“ (Kamera)</button>
           </div>
-          <div id="signing" class="signing-dot" hidden>● Gebärde…</div>
+          <div class="g-opts">
+            <label class="toggle"><input id="g-assist" type="checkbox" checked /> Assistenz</label>
+            <label class="toggle"><input id="g-details" type="checkbox" /> Details</label>
+          </div>
+          <p id="g-debug" class="g-debug" hidden></p>
+          <ol id="g-steps" class="g-steps"></ol>
+          <p id="g-hint" class="g-hint"></p>
+          <div class="controls">
+            <button id="g-next" type="button" disabled>Weiter (Schritt überspringen)</button>
+            <button id="g-stop" type="button" disabled>Beenden</button>
+          </div>
         </div>
+        <p class="panel note"><strong>Szenario-Demo mit DGS-Videos aus SignDict.</strong> Die Gebärden der Kundin werden aus
+          aufgezeichneten Videos abgespielt; MediaPipe zeigt das Skelett, und der Text entsteht Wort für Wort. Fehlende
+          Gebärden (ohne freie Lizenz) erscheinen als Textkarte.</p>
         <div class="controls">
-          <button id="start" type="button" class="primary">Kamera starten</button>
-          <button id="flip" type="button">Kamera wechseln</button>
-          <button id="example" type="button">Beispiel abspielen</button>
-          <button id="clear" type="button">Löschen</button>
+          <button id="scenario" type="button" class="primary big-btn">▶ Szenario abspielen</button>
+          <button id="scenario2" type="button">▶ Kundin: „Verstanden, danke“</button>
         </div>
         <div class="sentence-box">
-          <p class="label">Der Kunde sagt:</p>
+          <p class="label">Die Kundin sagt:</p>
           <p id="sentence" class="sentence"><span class="muted">…</span></p>
+          <p id="sentence-de" class="sentence-full"></p>
           <p id="sentence-en" class="sentence-en"></p>
         </div>
-        <p class="known">Erkennt: <span id="known"></span></p>
+
+        <details class="camera-box" id="camera-box">
+          <summary>Kamera (Skelett)</summary>
+          <p class="fineprint">Die Kamera zeigt Ihr Skelett. Wörter erscheinen nur im geführten Szenario, in der erwarteten Reihenfolge.</p>
+          <div id="stage" class="stage" data-mirrored="true">
+            <video id="video" playsinline webkit-playsinline muted autoplay></video>
+            <canvas id="overlay"></canvas>
+            <div id="placeholder" class="placeholder">
+              <div><button id="start-big" type="button" class="primary big">▶ Kamera starten</button>
+                <p>Gebärden einzeln zeigen, Hände dazwischen kurz senken.</p></div>
+            </div>
+            <div id="signing" class="signing-dot" hidden>● Gebärde…</div>
+          </div>
+          <div class="controls">
+            <button id="start" type="button" class="primary">Kamera starten</button>
+            <button id="flip" type="button">Kamera wechseln</button>
+            <button id="clear" type="button">Löschen</button>
+          </div>
+        </details>
       </section>
 
-      <!-- B: pharmacist answers -> signs -->
-      <section id="pane-reply" class="pane">
-        <div class="stage avatar-stage">
-          <canvas id="avatar"></canvas>
-          <div class="live-caption"><p id="avatar-word" class="cap-de"></p><p id="avatar-sub" class="cap-en"></p></div>
+      <!-- B: the pharmacist answers -->
+      <section id="pane-reply" class="pane" hidden>
+        <div class="controls">
+          <button id="answer" type="button" class="primary big-btn">▶ Rezept-Antwort (Teil 2)</button>
         </div>
+        <p class="fineprint" id="answer-text"></p>
         <div class="quick" id="quick"></div>
         <div class="reply-row">
-          <input id="reply-text" type="text" inputmode="text" placeholder="Antwort tippen, z. B. „Morgens mit Wasser“" aria-label="Antwort" />
+          <input id="reply-text" type="text" placeholder="Antwort tippen, z. B. „Medikament zwei Wochen“" aria-label="Antwort" />
           <button id="reply-go" type="button" class="primary">Gebärden</button>
           <button id="mic" type="button" title="Spracheingabe">🎤</button>
         </div>
@@ -89,12 +131,10 @@
     </main>
 
     <footer class="foot">
-      <p>
-        <strong>Forschungsdemo, kein Dolmetscher.</strong> Für wichtige Gespräche bitte eine Gebärdensprachdolmetscherin
-        oder einen Dolmetscher buchen. Gebärden-Beispiele: PopSign ASL v1.0 (Georgia Tech), CC BY 4.0, als
-        Skelettpunkte (MediaPipe), ohne Video. Die Erkennung vergleicht mit wenigen Beispielen und irrt sich oft.
-      </p>
-      <p class="credits">MediaPipe (Apache-2.0). Keine Cookies, keine Analyse, nichts wird gespeichert oder gesendet.</p>
+      <p><strong>Forschungsdemo, kein Dolmetscher.</strong> Für wichtige Gespräche bitte eine Gebärdensprachdolmetscherin oder einen Dolmetscher buchen. Die Gebärdenfolgen sind Wort für Wort, keine DGS-Grammatik.</p>
+      <p><strong>Gebärdenvideos:</strong> SignDict (signdict.org), überwiegend aus Wikisign DGS. Lizenz und Urheber pro Video:</p>
+      <ul id="credits" class="credits-list"></ul>
+      <p class="fineprint">CC BY-SA: Videos und daraus abgeleitete Skelette bleiben unter CC BY-SA 3.0 DE. Vollständige Liste mit SHA-256: <a href="/pharmacy/CREDITS.md">CREDITS.md</a>. MediaPipe (Apache-2.0). Keine Cookies, keine Analyse, nichts wird gespeichert oder gesendet.</p>
     </footer>
     <script type="module" src="/src/pharmacy/main.ts"></script>
   </body>

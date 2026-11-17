@@ -77,3 +77,15 @@ describe("German reply -> signs", () => {
     expect(textToSigns("zu Hause")[0]!.sign).toBe("home");
   });
 });
+
+import { stepsFor, type DgsData } from "../src/pharmacy/dgs";
+describe("DGS steps", () => {
+  it("marks glosses without an open video as text cards", () => {
+    const d = { signs: { HALLO: { de: "Hallo", en: "hello" } }, missing: { KOPF: { de: "Kopf", en: "head" } }, sentences: [], templates: [] } as unknown as DgsData;
+    expect(stepsFor(["HALLO", "KOPF", "XYZ"], d)).toEqual([
+      { gloss: "HALLO", de: "Hallo", en: "hello", available: true },
+      { gloss: "KOPF", de: "Kopf", en: "head", available: false },
+      { gloss: "XYZ", de: "xyz", en: "", available: false },
+    ]);
+  });
+});

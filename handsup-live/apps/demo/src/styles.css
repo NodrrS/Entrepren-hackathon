@@ -160,3 +160,8 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* Pharmacy DGS reply player (components/pharmacy/DgsReply.tsx): view switch and "Gebärde folgt" card */
+.dgs-player[data-view="video"] .dgs-ps,
+.dgs-player[data-view="skeleton"] .dgs-pv { display: none; }
+.dgs-player[data-card="true"] .dgs-card { display: flex; }

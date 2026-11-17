@@ -16,6 +16,13 @@ import { MockFigure } from "./MockFigure";
 import { Stage } from "./Stage";
 import { LatencyPanel } from "./LatencyPanel";
 import { setDebug, useDebug } from "@/lib/metrics";
+import { DgsReply } from "./pharmacy/DgsReply";
+import { GuidedCaption, GuidedPanel } from "./pharmacy/GuidedPanel";
+import { usePharmacy } from "@/lib/pharmacy/usePharmacy";
+import { stepsFor, type Step } from "@/lib/pharmacy/dgs";
+import { textToSteps } from "@/lib/pharmacy/text";
+
+const QUICK_PHARMACY = ["Rezept-Antwort", "Medikament", "Zwei Wochen", "Danke"];
 
 const SECTION = "text-[13px] font-semibold tracking-[0.06em] text-muted-foreground uppercase";
 
@@ -44,12 +51,6 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
   const [crop, setCrop] = useState<Crop>("whole");
   const fileRef = useRef<HTMLInputElement>(null);
   const debug = useDebug();
-  /** Home: back to the start of the counter view (stops the session, clears the conversation). */
-  const goHome = () => {
-    s.stop(); s.reset();
-    setCustomer(false); setInfo(false); setErr(null); setProblem(null);
-    scrollTo({ top: 0 });
-  };
 
   // A new source starts a new conversation: nothing from the last one is kept.
   const run = (fn: () => Promise<void>) => {
@@ -72,7 +73,37 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
       setFetching(false);
     }
   };
-  const send = (text: string) => { setProblem(null); s.sendReply(text); };
+  // Pharmacy (DGS) mode: guided scenario on the camera, staff answers played as DGS videos + skeleton person.
+  const ph = usePharmacy(r, (turn) => s.say(s.lang === "de" ? turn.de : `${turn.de} (${turn.en})`, s.lang));
+  const [dgs, setDgs] = useState<{ steps: Step[]; key: number }>({ steps: [], key: 0 });
+  const send = (text: string) => {
+    setProblem(null);
+    if (ph.on && ph.data) {
+      const answer = ph.data.sentences[1];
+      if (text === "Rezept-Antwort" && answer) {
+        s.sendReply(answer.de);
+        setDgs((d) => ({ steps: stepsFor(answer.glosses, ph.data!), key: d.key + 1 }));
+        return;
+      }
+      setDgs((d) => ({ steps: textToSteps(text, ph.data!), key: d.key + 1 }));
+    }
+    s.sendReply(text);
+  };
+  const togglePharmacy = () => {
+    const next = !ph.on;
+    if (next) s.setSource("camera");
+    s.stop();
+    ph.stopTurn();
+    ph.setOn(next);
+  };
+  /** Home: back to the start of the counter view (stops the session and the pharmacy mode, clears the conversation). */
+  const goHome = () => {
+    s.stop(); s.reset();
+    ph.stopTurn(); ph.setOn(false);
+    setDgs((d) => ({ steps: [], key: d.key + 1 }));
+    setCustomer(false); setInfo(false); setErr(null); setProblem(null);
+    scrollTo({ top: 0 });
+  };
 
   const bubbles: Bubble[] = s.messages.map((m) => {
     const st = m.lineId === undefined ? undefined : s.sentences[m.lineId];
@@ -94,7 +125,7 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
         <button type="button" onClick={goHome} aria-label="Home" className="rounded-lg"><Logo className="h-8 w-auto" /></button>
         {s.useMock && <span className="hidden rounded-[14px] bg-secondary px-3 py-1.5 text-[15px] font-semibold md:inline">Apotheke am Markt · Counter 1</span>}
         <span className="rounded-[14px] bg-secondary px-3 py-1.5 text-[15px] font-semibold">Research demo</span>
-        <span className="hidden rounded-[14px] bg-info-soft px-3 py-1.5 text-sm font-semibold text-info-ink sm:inline">{s.useMock ? "Pharmacy vocabulary" : "Weather vocabulary · DGS"}</span>
+        <span className="hidden rounded-[14px] bg-info-soft px-3 py-1.5 text-sm font-semibold text-info-ink sm:inline">{ph.on ? "Apotheke · DGS (geführt)" : s.useMock ? "Pharmacy vocabulary" : "Weather vocabulary · DGS"}</span>
         <div className="flex-1" />
         <button type="button" onClick={goHome} className="inline-flex min-h-11 items-center gap-2 text-[15px] font-medium text-link underline hover:text-link/80">
           <House className="h-4 w-4" aria-hidden="true" /> Home
@@ -133,8 +164,8 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
             videoRef={r.videoRef}
             canvasRef={r.canvasRef}
             running={s.running}
-            hint={!s.running && !newest}
-            label={stageLabel}
+            hint={!ph.on && !s.running && !newest}
+            label={ph.on ? (r.mode === "camera" ? "Apotheke · DGS · Kamera" : "Apotheke · DGS") : stageLabel}
             showSkeleton={r.showSkeleton}
             onToggleSkeleton={() => r.setShowSkeleton(!r.showSkeleton)}
             drag={drag}
@@ -144,8 +175,10 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
               onDrop: (e: React.DragEvent) => { e.preventDefault(); setDrag(false); if (!s.useMock) onFile(e.dataTransfer.files[0]); },
             }}
             figure={s.useMock ? <MockFigure active={s.running} className="absolute inset-0 h-full w-full" /> : undefined}
-            caption={<Captions line={newest} sentence={newest ? s.sentences[newest.id] : undefined} lang={s.lang} />}
+            caption={ph.on ? <GuidedCaption ph={ph} /> : <Captions line={newest} sentence={newest ? s.sentences[newest.id] : undefined} lang={s.lang} />}
           />
+
+          {ph.on && <GuidedPanel ph={ph} disabled={!s.ready} />}
 
           <section aria-labelledby="session-h" className="space-y-2">
             <h2 id="session-h" className={SECTION}>Conversation</h2>
@@ -162,12 +195,13 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
                   <Video className="h-4 w-4" />{!s.ready ? `Loading the model… ${Math.round(r.progress * 100)}%` : { camera: "Start camera", weather: "Play the forecast", pharmacy: "Start example" }[s.source]}
                 </Pill>
               )}
-              <SourceToggle value={s.source} onChange={s.setSource} className="w-full max-w-md" />
+              {!ph.on && <SourceToggle value={s.source} onChange={s.setSource} className="w-full max-w-md" />}
+              <Pill aria-pressed={ph.on} onClick={togglePharmacy}>Apotheke (DGS)</Pill>
             </div>
             <p className="m-0 text-sm text-muted-foreground">{SOURCE_NOTES[s.source]}.{s.source !== "camera" && " Choose Live camera to sign yourself, play single clips or use your own video."}</p>
           </section>
 
-          {s.source === "camera" && (
+          {s.source === "camera" && !ph.on && (
             <>
               <section aria-labelledby="examples-h" className="space-y-2">
                 <h2 id="examples-h" className={SECTION}>Examples</h2>
@@ -238,10 +272,12 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
 
         {/* On wide screens the conversation fills exactly the height of the left column and scrolls inside. */}
         <div className="relative lg:min-h-0">
+          {ph.on && ph.data && dgs.steps.length > 0 && <DgsReply data={ph.data} steps={dgs.steps} playKey={dgs.key} className="mb-4" />}
+          {ph.on && ph.dataError && <p className="text-sm text-destructive">DGS-Daten fehlen: {ph.dataError}</p>}
           <Conversation
-            className="lg:absolute lg:inset-0"
+            className={ph.on ? "" : "lg:absolute lg:inset-0"}
             bubbles={bubbles}
-            quick={QUICK_COUNTER[s.lang]}
+            quick={ph.on ? QUICK_PHARMACY : QUICK_COUNTER[s.lang]}
             onSend={send}
             mic={<HoldToSpeak variant="round" lang={s.lang} onText={send} onProblem={setProblem} />}
             notice={problem}

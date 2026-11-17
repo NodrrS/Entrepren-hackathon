@@ -1,8 +1,9 @@
 // dev.handsupai.com: the team test site (Worker "hands-up-dev"). live.handsupai.com stays the stable demo.
+// "/" = the team app (apps/demo), plus /live/ and /pharmacy/ from apps/web; built by deploy/dev/merge.mjs.
 {
   "name": "hands-up-dev",
   "compatibility_date": "2026-11-01",
-  "assets": { "directory": "../../apps/web/dist", "html_handling": "auto-trailing-slash" },
+  "assets": { "directory": "./dist", "html_handling": "auto-trailing-slash" },
   "routes": [{ "pattern": "dev.handsupai.com", "custom_domain": true }],
   "workers_dev": false
 }

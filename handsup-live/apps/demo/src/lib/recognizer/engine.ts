@@ -114,6 +114,10 @@ export class RecognizerEngine {
   };
   private readonly listeners = new Set<() => void>();
   private readonly finalListeners = new Set<(line: CaptionLine) => void>();
+  /** Raw landmark frames (camera/upload), for other recognisers such as the pharmacy guided mode. */
+  private readonly landmarkListeners = new Set<(frame: LandmarkFrame) => void>();
+  /** When false, fc10 (weather vocabulary) gets no frames and produces no lines (pharmacy mode). */
+  private fc10Enabled = true;
 
   private readonly ctx: CanvasRenderingContext2D | null;
   private readonly guard = installNetworkGuard(window);
@@ -364,9 +368,21 @@ export class RecognizerEngine {
   }
 
   // ------------------------------------------------------------ frames (camera and uploaded clip)
+  /** Subscribe to the landmark frames of the camera or an uploaded clip. */
+  onLandmarks(cb: (frame: LandmarkFrame) => void): () => void {
+    this.landmarkListeners.add(cb);
+    return () => this.landmarkListeners.delete(cb);
+  }
+
+  /** Turn the fc10 weather recogniser on or off (the camera and skeleton keep running). */
+  setFc10Enabled(v: boolean): void {
+    this.fc10Enabled = v;
+  }
+
   private onFrame(frame: LandmarkFrame): void {
     const stream = this.stream;
     if ((this.snap.mode !== "camera" && this.snap.mode !== "upload") || !stream) return;
+    for (const l of this.landmarkListeners) l(frame);
     if (this.canvas.width !== frame.image.width || this.canvas.height !== frame.image.height) {
       this.canvas.width = frame.image.width;
       this.canvas.height = frame.image.height;
@@ -375,6 +391,7 @@ export class RecognizerEngine {
       if (this.snap.showSkeleton) drawSkeleton(this.ctx, { ...frame, presence: { ...frame.presence, face: false } }, this.canvas.width, this.canvas.height);
       else this.clearOverlay();
     }
+    if (!this.fc10Enabled) return;
     const hands = frame.presence.leftHand || frame.presence.rightHand;
     const t = frame.timestampMs;
     if (hands) {

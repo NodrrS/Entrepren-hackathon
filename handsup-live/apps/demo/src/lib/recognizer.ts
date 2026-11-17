@@ -3,6 +3,7 @@
  * against); to use a hosted recognition API later, swap the engine behind it (see recognizer/engine.ts).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import type { LandmarkFrame } from "@handsup/sign-engine";
 import { RecognizerEngine, type CaptionLine, type Crop, type Mode, type Phase, type Snapshot, type StatusKind } from "./recognizer/engine";
 
 export type Lang = "en" | "de";
@@ -28,6 +29,10 @@ export interface RecognizerApi {
   startUpload(file: File, crop?: Crop): Promise<void>;
   stop(): void;
   onLineFinal(cb: (line: CaptionLine) => void): () => void;
+  /** Landmark frames of the camera or an uploaded clip (pharmacy guided mode). */
+  onLandmarks(cb: (frame: LandmarkFrame) => void): () => void;
+  /** Off: fc10 (weather vocabulary) gets no frames and gives no captions; the camera and skeleton still run. */
+  setFc10Enabled(v: boolean): void;
 }
 
 const EMPTY: Snapshot = {
@@ -48,6 +53,8 @@ export function useRecognizer(): RecognizerApi {
   const [engine, setEngine] = useState<RecognizerEngine | null>(null);
   const engineRef = useRef<RecognizerEngine | null>(null);
   const finalCbs = useRef(new Set<(line: CaptionLine) => void>());
+  const landmarkCbs = useRef(new Set<(frame: LandmarkFrame) => void>());
+  const fc10On = useRef(true);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -57,10 +64,15 @@ export function useRecognizer(): RecognizerApi {
     const off = e.onLineFinal((line) => {
       for (const cb of finalCbs.current) cb(line);
     });
+    const offLm = e.onLandmarks((frame) => {
+      for (const cb of landmarkCbs.current) cb(frame);
+    });
+    e.setFc10Enabled(fc10On.current);
     engineRef.current = e;
     setEngine(e);
     return () => {
       off();
+      offLm();
       e.dispose();
       engineRef.current = null;
       setEngine(null);
@@ -81,6 +93,17 @@ export function useRecognizer(): RecognizerApi {
     };
   }, []);
 
+  const onLandmarks = useCallback((cb: (frame: LandmarkFrame) => void) => {
+    landmarkCbs.current.add(cb);
+    return () => {
+      landmarkCbs.current.delete(cb);
+    };
+  }, []);
+  const setFc10Enabled = useCallback((v: boolean) => {
+    fc10On.current = v;
+    engineRef.current?.setFc10Enabled(v);
+  }, []);
+
   return useMemo(
     () => ({
       phase: snap.phase,
@@ -98,7 +121,9 @@ export function useRecognizer(): RecognizerApi {
       startUpload,
       stop,
       onLineFinal,
+      onLandmarks,
+      setFc10Enabled,
     }),
-    [snap, videoRef, canvasRef, setShowSkeleton, startCamera, startDemo, startUpload, stop, onLineFinal],
+    [snap, videoRef, canvasRef, setShowSkeleton, startCamera, startDemo, startUpload, stop, onLineFinal, onLandmarks, setFc10Enabled],
   );
 }
