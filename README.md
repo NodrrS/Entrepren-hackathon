@@ -60,19 +60,19 @@ Everyone holds two roles and every critical task has a partner, so nobody is a s
 
 | Role | Owner | Partner | Responsible for |
 | --- | --- | --- | --- |
-| Orchestrator + scope keeper | Nodir | Bhuvanesh | Timeline, decisions, cutting scope, the one-page brief |
-| Frontend (Lovable driver) | Nodir | Utkarsh | The only person prompting Lovable at a time, to avoid conflicting edits |
-| Backend + AI logic | Utkarsh | Nodir | AI prompt, data model, Supabase or seed data, API keys |
-| Business + numbers | Bhuvanesh | Nodir | Founder interview, pain in numbers, who pays, pricing slide |
-| User testing | Bhuvanesh | Utkarsh | Recruiting 5 testers from midday, running tests at 17:00 |
-| Pitch | Nodir | Bhuvanesh | Story, deck, live demo; Bhuvanesh is backup presenter |
+| Orchestrator + scope keeper | Nodir | [New member] | Timeline, decisions, cutting scope, the one-page brief |
+| Frontend (Lovable driver) | Nodir | Oscar | The only person prompting Lovable at a time, to avoid conflicting edits |
+| Backend + AI logic | Oscar | Nodir | AI prompt, data model, Supabase or seed data, API keys |
+| Business + numbers | [New member] | Nodir | Founder interview, pain in numbers, who pays, pricing slide |
+| User testing | [New member] | Oscar | Recruiting 5 testers from midday, running tests at 17:00 |
+| Pitch | Nodir | [New member] | Story, deck, live demo; [New member] is backup presenter |
 
 **Rules of the day**
 
 - Disagreement: 5 minutes of discussion, then the orchestrator decides.
 - Check-ins at 12:30, 14:30 and 16:00, 10 minutes each: done, next, blocked.
 - One shared channel (WhatsApp) plus this doc.
-- Nodir stops building at 16:30 to own the pitch; Utkarsh takes over Lovable for bug fixes.
+- Nodir stops building at 16:30 to own the pitch; Oscar takes over Lovable for bug fixes.
 
 ## Implementation plan
 
@@ -85,16 +85,16 @@ The core flow must be clickable end to end by 12:30 and the feature freeze is at
 | 09:30 | Crash course | Note Lovable tips and limits (credits per team) | All |
 | 10:00 | Cases | Score each case with the rubric; ask the founder the 3 questions | All |
 | 10:40 | Decide + brief | One-page brief: user, pain with number, 3-step core flow, definition of done, out of scope | Nodir |
-| 11:00–12:30 | Sprint 1: skeleton | Whole flow clickable with seed data; app published to a live URL | Nodir + Utkarsh |
-| 11:00–12:30 | Business track | Founder interview for numbers and who pays; start recruiting 5 testers | Bhuvanesh |
+| 11:00–12:30 | Sprint 1: skeleton | Whole flow clickable with seed data; app published to a live URL | Nodir + Oscar |
+| 11:00–12:30 | Business track | Founder interview for numbers and who pays; start recruiting 5 testers | [New member] |
 | 12:30 | Check-in 1 | Flow not clickable? Cut a step now | All |
 | 12:30–13:00 | Lunch | Eat while working, no long break | All |
-| 13:00–14:30 | Sprint 2: make it real | Real AI call and real data on the main step; founder sees it for 10 minutes | Nodir + Utkarsh |
+| 13:00–14:30 | Sprint 2: make it real | Real AI call and real data on the main step; founder sees it for 10 minutes | Nodir + Oscar |
 | 14:30 | Check-in 2 | Apply founder feedback, freeze the scope list | All |
-| 14:30–16:00 | Sprint 3: demo path | Polish only what is shown in the demo; deck draft in parallel | Nodir + Utkarsh / Bhuvanesh |
-| 16:00 | Feature freeze | Record a 60-second backup video of the demo | Utkarsh |
-| 16:00–17:00 | Stabilize + pitch | Bug fixes only; deck done; pitch run-through 1 | Utkarsh / Nodir + Bhuvanesh |
-| 17:00–17:40 | User tests | 5 tests, 5 minutes each, results counted | Bhuvanesh + Utkarsh |
+| 14:30–16:00 | Sprint 3: demo path | Polish only what is shown in the demo; deck draft in parallel | Nodir + Oscar / [New member] |
+| 16:00 | Feature freeze | Record a 60-second backup video of the demo | Oscar |
+| 16:00–17:00 | Stabilize + pitch | Bug fixes only; deck done; pitch run-through 1 | Oscar / Nodir + [New member] |
+| 17:00–17:40 | User tests | 5 tests, 5 minutes each, results counted | [New member] + Oscar |
 | 17:40–18:00 | Final pitch | Add test results to the deck; run-through 2 | Nodir |
 | 18:00 | Demo | Live demo to the jury | Nodir |
 
