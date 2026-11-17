@@ -102,4 +102,4 @@ The core flow must be clickable end to end by 12:30 and the feature freeze is at
 
 - Judging criteria and pitch length (ask at kick-off)
 - Can code be prepared beforehand? (ask at kick-off)
-- Who exactly is on the team today?
+- Who is our third team member? (find by 10:40)
