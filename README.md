@@ -70,9 +70,9 @@ Case owner: Karmel Salah. A browser page that turns on the camera and shows subt
 | Frontend (Lovable driver) | Nodir | Oscar | Demo page: camera view, live captions, "how it works" panel, mock mode |
 | Model integration | Oscar | Karmel | In-browser tracking (hands, body, face), feeding the model 4 frames at a time, latency on screen |
 | Model + signs | Karmel | Oscar | Model delivery, list of signs that work, signer in the demo |
-| Pitch + numbers | Nodir | Karmel | Story, deck, pain in numbers, who pays |
-| User testing | Nodir | Karmel | Tests at 17:00 |
-| Third member | [New member] | – | Business/testing support if found |
+| Pitch + numbers | Sofia | Nodir | Business slides, pain in numbers, pricing, who pays ([NUMBERS.md](NUMBERS.md), [SOFIA.md](SOFIA.md)) |
+| Buyer validation | Sofia | – | 8+ counter-owner conversations, price check, pilot leads |
+| User testing | Nodir | Sofia | Tests at 17:00 |
 
 **Rules of the day**
 
@@ -107,5 +107,4 @@ The page must work in mock mode by 13:20, and the real model must run in the pag
 
 - Judging criteria and pitch length (ask at kick-off)
 - Can code be prepared beforehand? (ask at kick-off)
-- Who is our third team member?
 - Which scenario for the sign vocabulary: government office, doctor's visit, or other?
