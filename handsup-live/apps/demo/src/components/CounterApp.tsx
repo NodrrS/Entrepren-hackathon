@@ -18,9 +18,6 @@ import { LatencyPanel } from "./LatencyPanel";
 import { setDebug, useDebug } from "@/lib/metrics";
 import { DgsReply } from "./pharmacy/DgsReply";
 import { GuidedCaption, GuidedPanel } from "./pharmacy/GuidedPanel";
-import { usePharmacy } from "@/lib/pharmacy/usePharmacy";
-import { stepsFor, type Step } from "@/lib/pharmacy/dgs";
-import { textToSteps } from "@/lib/pharmacy/text";
 
 const QUICK_PHARMACY = ["Rezept-Antwort", "Medikament", "Zwei Wochen", "Danke"];
 
@@ -73,34 +70,14 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
       setFetching(false);
     }
   };
-  // Pharmacy (DGS) mode: guided scenario on the camera, staff answers played as DGS videos + skeleton person.
-  const ph = usePharmacy(r, (turn) => s.say(s.lang === "de" ? turn.de : `${turn.de} (${turn.en})`, s.lang));
-  const [dgs, setDgs] = useState<{ steps: Step[]; key: number }>({ steps: [], key: 0 });
-  const send = (text: string) => {
-    setProblem(null);
-    if (ph.on && ph.data) {
-      const answer = ph.data.sentences[1];
-      if (text === "Rezept-Antwort" && answer) {
-        s.sendReply(answer.de);
-        setDgs((d) => ({ steps: stepsFor(answer.glosses, ph.data!), key: d.key + 1 }));
-        return;
-      }
-      setDgs((d) => ({ steps: textToSteps(text, ph.data!), key: d.key + 1 }));
-    }
-    s.sendReply(text);
-  };
-  const togglePharmacy = () => {
-    const next = !ph.on;
-    if (next) s.setSource("camera");
-    s.stop();
-    ph.stopTurn();
-    ph.setOn(next);
-  };
+  // Pharmacy topic: guided DGS scenario on the live camera (session-level), staff answers played as DGS.
+  const ph = s.ph;
+  const dgs = s.dgs;
+  const send = (text: string) => { setProblem(null); s.sendReply(text); };
   /** Home: back to the start of the counter view (stops the session and the pharmacy mode, clears the conversation). */
   const goHome = () => {
     s.stop(); s.reset();
-    ph.stopTurn(); ph.setOn(false);
-    setDgs((d) => ({ steps: [], key: d.key + 1 }));
+    ph.stopTurn();
     setCustomer(false); setInfo(false); setErr(null); setProblem(null);
     scrollTo({ top: 0 });
   };
@@ -197,8 +174,7 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
                   <Video className="h-4 w-4" />{!s.ready ? `Loading the model… ${Math.round(r.progress * 100)}%` : { camera: "Start camera", weather: "Play the forecast", pharmacy: "Start example" }[s.source]}
                 </Pill>
               )}
-              {!ph.on && <SourceToggle value={s.source} onChange={s.setSource} className="w-full max-w-md" />}
-              <Pill aria-pressed={ph.on} onClick={togglePharmacy}>Apotheke (DGS)</Pill>
+              <SourceToggle value={s.source} onChange={s.setSource} className="w-full max-w-md" />
             </div>
             <p className="m-0 text-sm text-muted-foreground">{SOURCE_NOTES[s.source]}.{s.source !== "camera" && " Choose Live camera to sign yourself, play single clips or use your own video."}</p>
           </section>

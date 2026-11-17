@@ -30,7 +30,14 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
         </div>
         {glosses.length > 0 && <p className="m-0 truncate text-[13px] tracking-[0.08em] text-muted-foreground [font-variant:small-caps]">{glosses.join(" · ").toLowerCase()}</p>}
         <div className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
-          {typeof sentence === "object" ? (
+          {s.source === "pharmacy" && s.ph.state.turn ? (
+            // Pharmacy (guided DGS): the scenario words so far, then the whole sentence when the turn is done.
+            <p className="m-0 animate-word-in font-display text-[26px] leading-[1.1] font-bold break-words">
+              {s.ph.state.index >= s.ph.state.turn.steps.length
+                ? (s.lang === "de" ? s.ph.state.turn.de : s.ph.state.turn.en)
+                : s.ph.state.turn.steps.slice(0, s.ph.state.index).map((st) => st.de).join(" ") || "…"}
+            </p>
+          ) : typeof sentence === "object" ? (
             // Long sentences get a smaller size so they fit the staff half without scrolling.
             <p key={`${newest?.id}-${sentence.lang}`} className="m-0 animate-word-in font-display leading-[1.08] font-bold break-words"
               style={{ fontSize: sentence.text.length > 70 ? 22 : sentence.text.length > 45 ? 26 : 38 }}>{sentence.text}</p>
@@ -60,9 +67,12 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
             <span className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
             {s.source === "weather"
               ? s.forecastDone ? "Forecast finished" : s.weatherWaiting ? `Paused after clip ${(s.weatherClip ?? 0) + 1} of 3` : `Weather forecast · clip ${(s.weatherClip ?? 0) + 1} of 3`
-              : "Reading your signs"}
+              : s.source === "pharmacy" ? "Apotheke · DGS · geführt" : "Reading your signs"}
           </span>
           <div className="flex gap-2">
+            {s.source === "pharmacy" && s.ph.active && (
+              <button type="button" onClick={s.ph.skip} className="min-h-11 rounded-full bg-primary px-4 text-[15px] font-bold text-primary-foreground">Weiter</button>
+            )}
             {s.source === "weather" && s.weatherWaiting && (
               <button type="button" onClick={s.nextClip} className="min-h-11 rounded-full bg-primary px-4 text-[15px] font-bold text-primary-foreground">Next clip</button>
             )}
@@ -76,7 +86,7 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
           <video ref={s.real.videoRef} muted playsInline className={cn("absolute inset-0 h-full w-full", s.useMock && "invisible")} />
           <canvas ref={s.real.canvasRef} className={cn("pointer-events-none absolute inset-0 h-full w-full", s.useMock && "invisible")} aria-hidden="true" />
           {s.useMock && <MockFigure active={s.running} className="absolute inset-0 h-full w-full" />}
-          {s.source === "camera" && s.real.mode === "camera" && (
+          {(s.source === "camera" || s.source === "pharmacy") && s.real.mode === "camera" && (
             <button type="button" onClick={() => void s.real.setFacing(s.real.facing === "user" ? "environment" : "user")}
               aria-label={s.real.facing === "user" ? "Use the back camera" : "Use the front camera"}
               className="absolute top-2 right-2 inline-flex h-11 items-center gap-1.5 rounded-full bg-stage-chip/90 px-3 text-sm font-semibold text-white">
@@ -85,11 +95,28 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
           )}
         </div>
         {!s.useMock && <p className="m-0 text-[13px] text-white/70" aria-live="polite">{s.real.statusText}</p>}
+        {s.source === "pharmacy" && s.ph.state.turn && (
+          <p className="m-0 text-[15px] font-semibold text-white" aria-live="polite">
+            {s.ph.state.index < s.ph.state.turn.steps.length
+              ? `Jetzt: ${s.ph.state.turn.steps[s.ph.state.index]!.gloss} (${s.ph.state.turn.steps[s.ph.state.index]!.hint})`
+              : s.ph.state.turn.de}
+          </p>
+        )}
+        {s.source === "pharmacy" ? (
+          <ul className="flex min-h-[2.25rem] flex-wrap gap-2" aria-label="Erkannte Gebärden">
+            {s.ph.state.turn?.steps.slice(0, s.ph.state.index).map((st, i, arr) => (
+              <li key={`${i}-${st.gloss}`} className={cn("animate-word-in rounded-[10px] px-3 py-1.5 text-[15px]", i === arr.length - 1 ? "bg-primary font-bold text-primary-foreground" : "bg-stage-chip font-semibold text-white")}>
+                {st.de}{s.ph.state.marks[i] === "loose" ? " ~" : s.ph.state.marks[i] === "skip" ? " ⏭" : ""}
+              </li>
+            ))}
+          </ul>
+        ) : (
         <ul className="flex min-h-[2.25rem] flex-wrap gap-2" aria-label="Recognised signs">
           {glosses.map((g, i) => (
             <li key={`${i}-${g}`} className={cn("animate-word-in rounded-[10px] px-3 py-1.5 text-[15px]", i === glosses.length - 1 ? "bg-primary font-bold text-primary-foreground" : "bg-stage-chip font-semibold text-white")}>{g}</li>
           ))}
         </ul>
+        )}
       </section>
     </div>
   );

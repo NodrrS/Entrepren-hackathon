@@ -20,7 +20,7 @@ export function SignerApp({ s, onCounter }: { s: Session; onCounter: () => void 
   // The staff answer replaces nothing on the signing screen: it opens the reply screen. The scripted dialogue
   // goes on only once the signer is back to signing.
   const reply = (text: string) => { s.sendReply(text, { advance: false }); setScreen("reply"); };
-  const signAgain = () => { setScreen("signing"); if (s.useMock) s.mock.next(); };
+  const signAgain = () => { setScreen("signing"); if (s.useMock) s.mock.next(); if (s.source === "pharmacy") void s.nextPharmacyTurn(); };
   const end = () => { s.stop(); s.reset(); setScreen("setup"); };
 
   return (

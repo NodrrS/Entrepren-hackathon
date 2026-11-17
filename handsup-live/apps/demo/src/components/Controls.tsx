@@ -74,7 +74,7 @@ export const SOURCE_LABELS: Record<SourceChoice, string> = { camera: "Live camer
 export const SOURCE_NOTES: Record<SourceChoice, string> = {
   camera: "Front camera · German weather-forecast signs",
   weather: "A recorded weather forecast, read by the real model",
-  pharmacy: "A scripted pharmacy conversation, no camera",
+  pharmacy: "Live camera, Apotheke in DGS: a guided scenario that checks simple features of the expected signs (Weiter skips a step)",
 };
 
 /** What to translate: the live camera, the recorded weather forecast (real model), or the scripted pharmacy example. */
