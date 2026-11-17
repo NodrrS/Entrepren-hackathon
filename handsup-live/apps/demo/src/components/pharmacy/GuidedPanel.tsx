@@ -60,7 +60,7 @@ export function GuidedPanel({ ph, disabled, className }: { ph: Ph; disabled: boo
 
 /** The scenario words so far, for the stage's caption area. */
 /** The caption while a guided turn runs; when it is done, the LLM's sentence (or the written one as a fallback). */
-export function GuidedCaption({ ph, sentence, lang }: { ph: Ph; sentence?: SentenceState | undefined; lang: Lang }) {
+export function GuidedCaption({ ph, sentence }: { ph: Ph; sentence?: SentenceState | undefined; lang?: Lang }) {
   const { turn, index, marks } = ph.state;
   if (!turn) return <div className="min-h-16 rounded-[14px] bg-white/10 px-4 py-3 text-[15px] text-white/60">Teil 1 starten, dann die Gebärden der Kundin zeigen.</div>;
   const said = turn.steps.slice(0, index);
@@ -78,7 +78,7 @@ export function GuidedCaption({ ph, sentence, lang }: { ph: Ph; sentence?: Sente
       ) : sentence === "pending" ? (
         <p className="m-0 font-display text-[2rem] font-bold text-muted-foreground" role="status"><span className="sr-only">Writing the sentence</span><span aria-hidden="true">…</span></p>
       ) : (
-        <p className="m-0 text-[15px]">{lang === "de" ? turn.de : turn.en}</p>
+        <p className="m-0 text-[15px]">{turn.de}</p>
       ))}
     </div>
   );

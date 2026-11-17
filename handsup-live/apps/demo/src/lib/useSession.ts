@@ -18,6 +18,9 @@ export type Source = "camera" | "weather" | "pharmacy";
 /** The recorded forecast is the three clips in demo-clips.json, played back to back. */
 export const WEATHER_CLIPS = 3;
 
+/** The pharmacy (guided DGS) scenario is German: the recogniser's words, its sentences and the LLM output. */
+export const PHARMACY_LANG: Lang = "de";
+
 export interface Message {
   key: string;
   who: "signer" | "staff";
@@ -199,8 +202,11 @@ export function useSession() {
   interpretRef.current = (turn, marks) => {
     const id = -++pharmacyId.current;
     chain.current = chain.current.then(async () => {
-      const { lang: l, speakOn: speak, voice: v } = settings.current;
-      const written = l === "de" ? turn.de : turn.en;
+      // The guided recogniser works in German (its words and its turn sentence are German), so the LLM writes
+      // German too and the German voice speaks it, whatever the page language is.
+      const { speakOn: speak, voice: v } = settings.current;
+      const l: Lang = PHARMACY_LANG;
+      const written = turn.de;
       const glosses = recognisedGlosses(turn, marks);
       let text = written;
       setMessages((m) => [...m, { key: `turn-${-id}`, who: "signer", text: written, lineId: id }]);

@@ -38,7 +38,7 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
               {s.ph.state.index >= s.ph.state.turn.steps.length
                 ? typeof s.pharmacySentence === "object" ? s.pharmacySentence.text
                   : s.pharmacySentence === "pending" ? "…"
-                  : (s.lang === "de" ? s.ph.state.turn.de : s.ph.state.turn.en)
+                  : s.ph.state.turn.de
                 : s.ph.state.turn.steps.slice(0, s.ph.state.index).map((st) => st.de).join(" ") || "…"}
             </p>
           ) : typeof sentence === "object" ? (

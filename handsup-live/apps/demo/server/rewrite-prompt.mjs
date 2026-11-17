@@ -67,7 +67,7 @@ const PHARMACY_SYSTEM = {
   ].join(" "),
 };
 
-const PHARMACY_EXAMPLES = {
+export const PHARMACY_EXAMPLES = {
   en: [
     ["HALLO KOPF SCHMERZ ARZT GEHEN HIER REZEPT DEUTSCH LESEN KANN-NICHT BITTE HELFEN", "Hello, I have a headache. I went to the doctor, here is the prescription. I can't read German, please help me."],
     ["HALLO KOPF SCHMERZ REZEPT", "Hello, I have a headache. I have a prescription."],
