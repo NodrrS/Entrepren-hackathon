@@ -71,6 +71,14 @@ German law mostly pays for **human interpreters**, and it covers public bodies f
 - **Pharmacies and practices: weak today, strong if the BGG reform passes.** No law requires DGS at a pharmacy counter yet. A €49/month tool is a textbook proportionate "reasonable accommodation". Pitch line: "ready for the BGG reform", not "required by law".
 - **BFSG:** no sign language duty. Its B2 rule for banks shows the law already cares about plain language, which supports the picture-reply design.
 
+**Lines to use (pitch, /business page, Sofia's sales talk):**
+- **"Why now" slide, two steps:** (1) the BFSG made accessibility a business issue in June 2025; (2) the BGG reform, now in parliament, would bring the "reasonable accommodations" duty to private counters.
+- **Pitch:** "Germany is moving from 'public offices must be accessible' to 'every business must make reasonable accommodations'. The bill is in the Bundestag now. Hands Up Counter gets a pharmacy ready for €49 a month, less than one interpreter hour."
+- **/business page:** one small line under the pricing cards, not the headline: "Get ahead of Germany's planned accessibility duties for businesses."
+- **Sales talk:** "If this passes, you'll need an answer when a Deaf customer walks in. This is that answer, already on your counter."
+- **Never say:** "required by law", "mandatory" or "makes you compliant". What counts as "reasonable" is decided case by case, and the bill doesn't name sign language tools. Say "helps you accommodate".
+- **If a judge asks about status:** "As of the June 2026 hearing it was still in committee." The latest date we have is June, so check Drucksache 21/5140 on [DIP](https://dip.bundestag.de) before the pitch if there's time.
+
 Also planned: a federal competence centre for DGS ([Ärzteblatt on BGG](https://www.aerzteblatt.de/themen/menschen-mit-behinderungen/anderung-des-behindertengleichstellungsgesetzes-geplant-ed8c3d3a-074e-42bf-a44a-55d168e2a94d)).
 
 ---

@@ -65,6 +65,7 @@ The wow moment, visible in 30 seconds: signs go in and words appear in under hal
 
 **4. For businesses**
 - Plans: Free for signers / Counter €49 / Service €299 (from [SOFIA.md](SOFIA.md), slide B).
+- One small line under the pricing cards: "Get ahead of Germany's planned accessibility duties for businesses." It is not the headline, and it never says "required by law" (the BGG reform is still in parliament; see [NUMBERS.md](NUMBERS.md)).
 - "Become a pilot counter" form: name, place type, city, email. These are Sofia's leads.
 
 **Out of scope today:** accounts, payments, more sign languages, the DGS avatar for replies, a native app, the "Deaf-friendly counter" map.
@@ -109,6 +110,6 @@ The demo always works through A. B or C makes it real. Both modes use the same c
 >
 > **/how-it-works:** A 4-step horizontal diagram (Camera → Hand and body points → Sign model on your device → Words), a privacy card ("Video never leaves the device. No cookies. No account."), and an honest-limits card ("Research demo for German Sign Language, about 1,200 signs. Not a replacement for interpreters in medical, legal or emergency settings.").
 >
-> **/business:** Three pricing cards: Free (€0, the phone app for Deaf and hard of hearing people), Counter (€49/month, highlighted, "less than one interpreter hour", the tablet mode for one location), Service (€299/month, up to 10 counters). Below them, a "Become a pilot counter" form with name, place type (select: pharmacy, doctor's practice, public office, shop, school, other), city and email. Store submissions in Supabase in a table pilot_signups and show a thank-you state.
+> **/business:** Three pricing cards: Free (€0, the phone app for Deaf and hard of hearing people), Counter (€49/month, highlighted, "less than one interpreter hour", the tablet mode for one location), Service (€299/month, up to 10 counters). Under the cards, one small grey line: "Get ahead of Germany's planned accessibility duties for businesses." Below that, a "Become a pilot counter" form with name, place type (select: pharmacy, doctor's practice, public office, shop, school, other), city and email. Store submissions in Supabase in a table pilot_signups and show a thank-you state.
 >
 > Style: white background, orange #FF5A36 accent, near-black text, a large friendly sans-serif (Inter, Space Grotesk for headings), generous spacing, high contrast, and accessible (keyboard, aria labels, touch targets at least 44px).
