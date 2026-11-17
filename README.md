@@ -2,7 +2,7 @@
 
 17 November 2026 · The Delta, Donaustraße 44, Berlin · ESCP Blue Factory
 
-Word version: [Hackathon-Plan-17-Nov.docx](Hackathon-Plan-17-Nov.docx)
+Word version: [Hackathon-Plan-17-Nov.docx](Hackathon-Plan-17-Nov.docx) · Case scoring and recommendation: [CASES.md](CASES.md)
 
 ## Picking the case (10:00–10:40)
 
