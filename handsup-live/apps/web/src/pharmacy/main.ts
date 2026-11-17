@@ -1,9 +1,10 @@
 /**
- * /pharmacy: two-way research demo for a pharmacy counter, entirely on device.
- *  A) customer signs -> MediaPipe Holistic -> sign segmentation -> template recogniser (ASL
- *     shortlist, PopSign examples) -> German words with confidence.
- *  B) pharmacist types, taps a quick reply or speaks -> words -> PopSign example skeletons
- *     played back as a signing figure.
+ * /pharmacy: DGS pharmacy research demo, entirely on device.
+ *  Kundin gebärdet: a scenario plays the customer's DGS sentence from SignDict videos with the
+ *    skeleton person, recognises each sign with the DTW template recogniser and builds the German and
+ *    English text word by word; optionally the camera (skeleton overlay, experimental recognition).
+ *  Apotheke antwortet: the pharmacist's answer, quick replies, typed text or voice are played as DGS
+ *    sign videos next to the skeleton person. Signs without an open video are shown as text cards.
  * Privacy (D-004): same-origin only (CSP + network guard), nothing stored, camera off when hidden.
  */
 import { installNetworkGuard } from "../privacy";
@@ -14,9 +15,9 @@ import mpAssets from "../../mediapipe-assets.json";
 import { bindCameraLifecycle } from "../lifecycle";
 import { drawSkeleton } from "../overlay";
 import { cameraErrorHelp, cameraProblem } from "../live/camera-support";
-import { FEAT_DIM, SignSegmenter, aspectCorrect, classify, sequenceFeatures, type RawSeqFrame, type Template } from "./classify";
-import { QUICK_REPLIES, SIGN_DE, textToSigns } from "./words";
-import { drawAvatar, fitClip } from "./avatar";
+import { SignSegmenter, aspectCorrect, classify, sequenceFeatures, type RawSeqFrame } from "./classify";
+import { DgsPlayer, featureFrames, loadDgs, stepsFor, type DgsData, type Step, type View } from "./dgs";
+import { normalise } from "./words";
 
 const guard = installNetworkGuard(window);
 guard.onBlocked((r) => console.warn(`Hands Up blocked an outbound ${r.api} request to ${r.url}`));
@@ -28,13 +29,29 @@ const $ = <T extends HTMLElement>(id: string) => {
 };
 const ui = {
   status: $("status"),
-  tabSign: $<HTMLButtonElement>("tab-sign"),
+  tabCustomer: $<HTMLButtonElement>("tab-customer"),
   tabReply: $<HTMLButtonElement>("tab-reply"),
-  paneSign: $("pane-sign"),
+  paneCustomer: $("pane-customer"),
   paneReply: $("pane-reply"),
   openin: $("openin"),
   openinUrl: $("openin-url"),
   copyLink: $<HTMLButtonElement>("copy-link"),
+  player: $("player"),
+  scenario: $<HTMLButtonElement>("scenario"),
+  scenario2: $<HTMLButtonElement>("scenario2"),
+  sentence: $("sentence"),
+  sentenceDe: $("sentence-de"),
+  sentenceEn: $("sentence-en"),
+  answer: $<HTMLButtonElement>("answer"),
+  answerText: $("answer-text"),
+  quick: $("quick"),
+  replyText: $<HTMLInputElement>("reply-text"),
+  replyGo: $<HTMLButtonElement>("reply-go"),
+  mic: $<HTMLButtonElement>("mic"),
+  micNote: $("mic-note"),
+  tokens: $("reply-tokens"),
+  credits: $("credits"),
+  // camera
   stage: $("stage"),
   video: $<HTMLVideoElement>("video"),
   canvas: $<HTMLCanvasElement>("overlay"),
@@ -43,120 +60,238 @@ const ui = {
   start: $<HTMLButtonElement>("start"),
   startBig: $<HTMLButtonElement>("start-big"),
   flip: $<HTMLButtonElement>("flip"),
-  example: $<HTMLButtonElement>("example"),
   clear: $<HTMLButtonElement>("clear"),
-  sentence: $("sentence"),
-  sentenceEn: $("sentence-en"),
-  known: $("known"),
-  avatar: $<HTMLCanvasElement>("avatar"),
-  avatarWord: $("avatar-word"),
-  avatarSub: $("avatar-sub"),
-  quick: $("quick"),
-  replyText: $<HTMLInputElement>("reply-text"),
-  replyGo: $<HTMLButtonElement>("reply-go"),
-  mic: $<HTMLButtonElement>("mic"),
-  micNote: $("mic-note"),
-  tokens: $("reply-tokens"),
 };
 const ctx = ui.canvas.getContext("2d");
-const actx = ui.avatar.getContext("2d");
 
 function setStatus(text: string, kind: "info" | "ok" | "warn" | "error" = "info"): void {
   ui.status.textContent = text;
   ui.status.dataset["kind"] = kind;
 }
 
-// ---------------------------------------------------------------- tabs
-function showTab(which: "sign" | "reply"): void {
-  const sign = which === "sign";
-  ui.tabSign.classList.toggle("active", sign);
-  ui.tabReply.classList.toggle("active", !sign);
-  ui.tabSign.setAttribute("aria-selected", String(sign));
-  ui.tabReply.setAttribute("aria-selected", String(!sign));
-  ui.paneSign.hidden = !sign;
-  ui.paneReply.hidden = sign;
-  if (!sign && running) stopCamera("Kamera aus, während die Apotheke antwortet.");
+let data: DgsData | null = null;
+let player: DgsPlayer | null = null;
+
+// ---------------------------------------------------------------- tabs + view
+function showTab(which: "customer" | "reply"): void {
+  const c = which === "customer";
+  ui.tabCustomer.classList.toggle("active", c);
+  ui.tabReply.classList.toggle("active", !c);
+  ui.tabCustomer.setAttribute("aria-selected", String(c));
+  ui.tabReply.setAttribute("aria-selected", String(!c));
+  ui.paneCustomer.hidden = !c;
+  ui.paneReply.hidden = c;
+  player?.stop();
+  if (!c && running) stopCamera("Kamera aus, während die Apotheke antwortet.");
 }
-ui.tabSign.addEventListener("click", () => showTab("sign"));
+ui.tabCustomer.addEventListener("click", () => showTab("customer"));
 ui.tabReply.addEventListener("click", () => showTab("reply"));
-
-// ---------------------------------------------------------------- sign data (templates + reply clips)
-interface SignsFile {
-  recognise: string[];
-  seqLen: number;
-  featDim: number;
-  reply: Record<string, { frames: number; keypoints_b64: string; present: number[][] }>;
-  templates: { sign: string; signer: string; seq_b64: string }[];
-}
-let templates: Template[] = [];
-let replyClips: Record<string, RawSeqFrame[]> = {};
-
-function f32(b64: string): Float32Array {
-  const bin = atob(b64);
-  const u = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-  return new Float32Array(u.buffer);
-}
-
-async function loadSigns(): Promise<void> {
-  const res = await fetch("/pharmacy/signs.json", { credentials: "same-origin" });
-  if (!res.ok || (res.headers.get("content-type") ?? "").includes("text/html")) throw new Error("signs.json fehlt");
-  const data = (await res.json()) as SignsFile;
-  if (data.featDim !== FEAT_DIM) throw new Error("signs.json passt nicht zu dieser Version");
-  templates = data.templates.map((t) => {
-    const flat = f32(t.seq_b64);
-    const seq: Float32Array[] = [];
-    for (let i = 0; i < data.seqLen; i++) seq.push(flat.subarray(i * FEAT_DIM, (i + 1) * FEAT_DIM));
-    return { sign: t.sign, signer: t.signer, seq };
+for (const b of document.querySelectorAll<HTMLButtonElement>(".viewbar button")) {
+  b.addEventListener("click", () => {
+    for (const o of document.querySelectorAll(".viewbar button")) o.classList.toggle("on", o === b);
+    player?.setView(b.dataset["view"] as View);
   });
-  replyClips = {};
-  for (const [sign, c] of Object.entries(data.reply)) {
-    const pts = f32(c.keypoints_b64);
-    replyClips[sign] = c.present.map((p, i) => ({ points: pts.subarray(i * 225, (i + 1) * 225), present: [!!p[0], !!p[1], !!p[2], !!p[3]] as const }));
-  }
-  ui.known.textContent = data.recognise.map((s) => SIGN_DE[s] ?? s).join(" · ");
 }
 
-// ---------------------------------------------------------------- A: recognition
+// ---------------------------------------------------------------- customer text, word by word
 interface Word {
-  sign: string;
-  confidence: number;
+  gloss: string;
+  de: string;
+  en: string;
+  confidence: number | null; // null = shown as text card (no sign video)
 }
-const sentence: Word[] = [];
-function renderSentence(): void {
+const words: Word[] = [];
+function renderWords(): void {
   ui.sentence.textContent = "";
-  if (!sentence.length) {
+  if (!words.length) {
     const s = document.createElement("span");
     s.className = "muted";
     s.textContent = "…";
     ui.sentence.append(s);
-    ui.sentenceEn.textContent = "";
     return;
   }
-  sentence.forEach((w, i) => {
+  words.forEach((w, i) => {
     const span = document.createElement("span");
-    span.className = `w${w.confidence < 0.35 ? " low" : ""}${i === sentence.length - 1 ? " new" : ""}`;
-    span.textContent = (w.confidence < 0.35 ? "? " : "") + (SIGN_DE[w.sign] ?? w.sign);
+    const low = w.confidence !== null && w.confidence < 0.35;
+    span.className = `w${w.confidence === null ? " text" : ""}${low ? " low" : ""}${i === words.length - 1 ? " new" : ""}`;
+    span.textContent = (low ? "? " : "") + w.de;
     const small = document.createElement("small");
-    small.textContent = `${Math.round(w.confidence * 100)} %`;
+    small.textContent = w.confidence === null ? `${w.gloss} · Textkarte` : `${w.gloss} · ${Math.round(w.confidence * 100)} %`;
     span.append(small);
     ui.sentence.append(span);
   });
-  ui.sentenceEn.textContent = "ASL: " + sentence.map((w) => w.sign.toUpperCase()).join(" · ");
 }
 
-const segmenter = new SignSegmenter((frames) => {
-  ui.signing.hidden = true;
-  const q = sequenceFeatures(frames, false, 6, "body");
-  if (!q) return;
-  const p = classify(q, templates);
-  if (!p) return;
-  sentence.push({ sign: p.sign, confidence: p.confidence });
-  if (sentence.length > 8) sentence.shift();
-  renderSentence();
+async function runScenario(index: number): Promise<void> {
+  if (!data || !player) return;
+  if (running) stopCamera();
+  const sent = data.sentences[index];
+  if (!sent) return;
+  words.length = 0;
+  renderWords();
+  ui.sentenceDe.textContent = "";
+  ui.sentenceEn.textContent = "";
+  ui.player.hidden = false;
+  setStatus("Szenario: DGS-Videos aus SignDict, Skelett von MediaPipe, Text Wort für Wort.", "ok");
+  const steps = stepsFor(sent.glosses, data);
+  const d = data;
+  const done = await player.play(steps, (_i, st) => {
+    // recognise the sign from its skeleton (template recogniser), or show the text card's word
+    if (st.available) {
+      const q = sequenceFeatures(featureFrames(d.signs[st.gloss]!), false, 6, "presence");
+      const p = q ? classify(q, d.templates) : null;
+      const g = p?.sign ?? st.gloss;
+      const s = d.signs[g];
+      words.push({ gloss: g, de: s?.de ?? st.de, en: s?.en ?? st.en, confidence: p?.confidence ?? 0 });
+    } else words.push({ gloss: st.gloss, de: st.de, en: st.en, confidence: null });
+    renderWords();
+  });
+  if (done) {
+    ui.sentenceDe.textContent = sent.de;
+    ui.sentenceEn.textContent = sent.en;
+    setStatus("Szenario fertig. Weiter mit „Apotheke antwortet“.", "ok");
+  }
+}
+ui.scenario.addEventListener("click", () => void runScenario(0));
+ui.scenario2.addEventListener("click", () => void runScenario(2));
+
+// ---------------------------------------------------------------- pharmacist reply
+/** German words -> DGS glosses (with or without an open video; the player shows text cards for the rest). */
+const DE_TO_GLOSS: Record<string, string> = {
+  hallo: "HALLO",
+  ich: "ICH", mir: "ICH", mich: "ICH",
+  arzt: "ARZT", aerztin: "ARZT", doktor: "ARZT",
+  gehen: "GEHEN", geh: "GEHEN", gehe: "GEHEN",
+  deutsch: "DEUTSCH",
+  "kann nicht": "KANN-NICHT", nicht: "KANN-NICHT",
+  bitte: "BITTE",
+  medikament: "MEDIKAMENT", medikamente: "MEDIKAMENT", tablette: "MEDIKAMENT", tabletten: "MEDIKAMENT", arznei: "MEDIKAMENT",
+  zwei: "ZWEI", "2": "ZWEI",
+  woche: "WOCHE", wochen: "WOCHE",
+  verstehen: "VERSTEHEN", verstanden: "VERSTEHEN", verstehe: "VERSTEHEN",
+  danke: "DANKE", dankeschoen: "DANKE",
+  zeigen: "ZEIGEN", zeig: "ZEIGEN", sehen: "ZEIGEN",
+  dreimal: "DREI-MAL", "drei mal": "DREI-MAL",
+  tag: "TAG", taeglich: "TAG",
+  nach: "NACH",
+  essen: "ESSEN", mahlzeit: "ESSEN",
+  fuenf: "FÜNF", "5": "FÜNF",
+  euro: "EURO",
+  kopf: "KOPF", kopfschmerzen: "KOPF",
+  schmerz: "SCHMERZ", schmerzen: "SCHMERZ",
+  hier: "HIER",
+  helfen: "HELFEN", hilfe: "HILFE",
+  rezept: "REZEPT",
+  lesen: "LESEN",
+};
+const STOP = new Set(["die", "der", "das", "den", "dem", "des", "und", "ein", "eine", "einen", "zu", "zum", "zur", "am", "im", "sie", "es", "mit", "fuer", "lang", "kostet", "lassen", "dieses", "diese"]);
+
+/** Typed German -> steps. Known words become DGS glosses; other words become text cards. */
+export function textToSteps(text: string, d: DgsData): Step[] {
+  const raw = text.split(/\s+/).filter(Boolean);
+  const out: Step[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const two = i + 1 < raw.length ? normalise(`${raw[i]} ${raw[i + 1]}`) : "";
+    if (two && DE_TO_GLOSS[two]) {
+      out.push(...stepsFor([DE_TO_GLOSS[two]!], d));
+      i++;
+      continue;
+    }
+    const w = normalise(raw[i]!);
+    if (!w || STOP.has(w)) continue;
+    const g = DE_TO_GLOSS[w];
+    if (g) out.push(...stepsFor([g], d));
+    else out.push({ gloss: raw[i]!.toUpperCase(), de: raw[i]!.replace(/[.,!?;:]+$/, ""), en: "", available: false });
+  }
+  return out;
+}
+
+async function playReply(steps: Step[], label: string): Promise<void> {
+  if (!player) return;
+  ui.player.hidden = false;
+  ui.tokens.textContent = "";
+  const chips = steps.map((s) => {
+    const c = document.createElement("span");
+    c.className = `t${s.available ? " sign" : ""}`;
+    c.textContent = s.available ? s.gloss : `${s.de} (Text)`;
+    ui.tokens.append(c);
+    return c;
+  });
+  setStatus(label, "ok");
+  await player.play(steps, (i) => chips.forEach((c, j) => c.classList.toggle("now", j === i)));
+  chips.forEach((c) => c.classList.remove("now"));
+}
+
+ui.answer.addEventListener("click", () => {
+  if (!data) return;
+  const s = data.sentences[1]!;
+  ui.answerText.textContent = `„${s.de}“ · ${s.en}`;
+  void playReply(stepsFor(s.glosses, data), "Antwort der Apotheke in DGS (fehlende Gebärden als Textkarte).");
 });
 
-// 25 FPS resampling of the camera stream (nearest frame), like the fc10 runtime.
+const QUICK: [string, string[]][] = [
+  ["Medikament", ["MEDIKAMENT"]],
+  ["Zwei Wochen", ["ZWEI", "WOCHE"]],
+  ["Verstanden?", ["VERSTEHEN"]],
+  ["Bitte", ["BITTE"]],
+  ["Danke", ["DANKE"]],
+  ["Zum Arzt gehen", ["ARZT", "GEHEN"]],
+  ["Hallo", ["HALLO"]],
+];
+for (const [label, glosses] of QUICK) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = label;
+  b.addEventListener("click", () => {
+    if (data) void playReply(stepsFor(glosses, data), `„${label}“ in DGS.`);
+  });
+  ui.quick.append(b);
+}
+const goText = () => {
+  if (data) void playReply(textToSteps(ui.replyText.value, data), "Getippte Antwort in DGS (Wort für Wort).");
+};
+ui.replyGo.addEventListener("click", goText);
+ui.replyText.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") goText();
+});
+
+type SR = { lang: string; interimResults: boolean; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: ((e: { error: string }) => void) | null; onend: (() => void) | null; start(): void };
+const SRCtor = (window as unknown as { SpeechRecognition?: new () => SR; webkitSpeechRecognition?: new () => SR }).SpeechRecognition ??
+  (window as unknown as { webkitSpeechRecognition?: new () => SR }).webkitSpeechRecognition;
+if (!SRCtor) {
+  ui.mic.hidden = true;
+  ui.micNote.textContent = "Spracheingabe gibt es in diesem Browser nicht; bitte tippen. Getippter Text bleibt auf dem Gerät.";
+} else {
+  ui.mic.addEventListener("click", () => {
+    const rec = new SRCtor();
+    rec.lang = "de-DE";
+    rec.interimResults = false;
+    ui.mic.textContent = "⏺";
+    rec.onresult = (e) => {
+      ui.replyText.value = e.results[0]?.[0]?.transcript ?? "";
+      goText();
+    };
+    rec.onerror = (e) => setStatus(`Spracheingabe: ${e.error}. Bitte tippen.`, "warn");
+    rec.onend = () => (ui.mic.textContent = "🎤");
+    rec.start();
+  });
+}
+
+// ---------------------------------------------------------------- camera (experimental)
+const camWords: Word[] = [];
+const segmenter = new SignSegmenter((frames) => {
+  ui.signing.hidden = true;
+  if (!data) return;
+  const q = sequenceFeatures(frames, false, 6, "body");
+  const p = q ? classify(q, data.templates) : null;
+  if (!p) return;
+  const s = data.signs[p.sign]!;
+  camWords.push({ gloss: p.sign, de: s.de, en: s.en, confidence: p.confidence });
+  words.length = 0;
+  words.push(...camWords.slice(-8));
+  renderWords();
+  ui.sentenceEn.textContent = words.map((w) => w.en).join(" · ");
+});
 let tick0 = -1;
 let k = 0;
 let lastRaw: { t: number; f: RawSeqFrame } | null = null;
@@ -167,18 +302,16 @@ function pushCamera(t: number, f: RawSeqFrame): void {
     segmenter.reset();
   }
   for (let tick = tick0 + k * 40; tick <= t; tick = tick0 + k * 40) {
-    const use = lastRaw && tick - lastRaw.t < t - tick ? lastRaw.f : f;
-    segmenter.push(use);
+    segmenter.push(lastRaw && tick - lastRaw.t < t - tick ? lastRaw.f : f);
     k++;
   }
   lastRaw = { t, f };
   ui.signing.hidden = !segmenter.inSign;
 }
 
-// ---------------------------------------------------------------- camera
 let facing: "user" | "environment" = "user";
 let running = false;
-let modelsReady = false;
+let mpReady = false;
 const sourceOptions = {
   video: ui.video,
   wasmBasePath: mpAssets.wasmBasePath,
@@ -191,7 +324,6 @@ const sourceOptions = {
 };
 let delegatePref: "GPU" | "CPU" = new URLSearchParams(location.search).get("delegate") === "CPU" ? "CPU" : "GPU";
 let source = makeSource(delegatePref);
-
 function makeSource(delegate: "GPU" | "CPU") {
   const s = createHolisticWebSource(Object.defineProperties({ delegate }, Object.getOwnPropertyDescriptors(sourceOptions)) as typeof sourceOptions & { delegate: "GPU" | "CPU" });
   s.onFrame(onFrame);
@@ -200,7 +332,6 @@ function makeSource(delegate: "GPU" | "CPU") {
   });
   return s;
 }
-
 function onFrame(frame: LandmarkFrame): void {
   if (!running) return;
   if (ui.canvas.width !== frame.image.width || ui.canvas.height !== frame.image.height) {
@@ -211,7 +342,6 @@ function onFrame(frame: LandmarkFrame): void {
   if (ctx) drawSkeleton(ctx, { ...frame, presence: { ...frame.presence, face: false } }, ui.canvas.width, ui.canvas.height);
   pushCamera(frame.timestampMs, aspectCorrect(rawFromHuFrame(frame), frame.image.width, frame.image.height));
 }
-
 async function onSourceError(error: EngineError): Promise<void> {
   if (error.code === "extractor-failed" && source.delegate === "GPU" && delegatePref === "GPU") {
     delegatePref = "CPU";
@@ -227,18 +357,15 @@ async function onSourceError(error: EngineError): Promise<void> {
   }
   showCameraError(error);
 }
-
 function showCameraError(error: EngineError | Error): void {
   const m = /Camera:\s*([A-Za-z]+Error)/.exec(error.message);
   const name = m?.[1] ?? (error as Error).name ?? "Error";
-  setStatus(`${cameraErrorHelp(name, navigator.userAgent)} [${name}] „Beispiel abspielen“ geht ohne Kamera.`, "warn");
+  setStatus(`${cameraErrorHelp(name, navigator.userAgent)} [${name}] Das Szenario geht ohne Kamera.`, "warn");
   stopCamera();
 }
-
 function cameraProblemNow() {
   return cameraProblem({ userAgent: navigator.userAgent, isSecureContext: window.isSecureContext, hasGetUserMedia: typeof navigator.mediaDevices?.getUserMedia === "function" });
 }
-
 let pendingStart = false;
 async function startCamera(): Promise<void> {
   if (cameraProblemNow()) {
@@ -247,12 +374,11 @@ async function startCamera(): Promise<void> {
     setStatus("Kein Kamerazugriff in diesem Browser. Seite in Safari oder Chrome öffnen.", "warn");
     return;
   }
-  if (!modelsReady) {
+  if (!mpReady) {
     if (!pendingStart) {
       pendingStart = true;
-      setStatus("Kamera erlauben; sie startet, sobald die Modelle geladen sind.", "info");
+      setStatus("Kamera erlauben; sie startet, sobald die Körpererkennung geladen ist.", "info");
       try {
-        // iOS: ask inside the tap
         const probe = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facing } } });
         for (const t of probe.getTracks()) t.stop();
       } catch (err) {
@@ -263,17 +389,18 @@ async function startCamera(): Promise<void> {
     return;
   }
   pendingStart = false;
-  stopExample();
+  player?.stop();
   ui.start.disabled = true;
   setStatus("Kamera wird geöffnet…");
   segmenter.reset();
+  camWords.length = 0;
   tick0 = -1;
   running = true;
   ui.placeholder.hidden = true;
   ui.stage.dataset["mirrored"] = String(facing === "user");
   try {
     await source.start();
-    if (running) setStatus("Bereit: einzelne Gebärden zeigen, Hände dazwischen kurz senken.", "ok");
+    if (running) setStatus("Kamera läuft: einzelne Gebärden zeigen, Hände dazwischen kurz senken.", "ok");
   } catch (err) {
     running = false;
     ui.placeholder.hidden = false;
@@ -283,7 +410,6 @@ async function startCamera(): Promise<void> {
     ui.start.textContent = running ? "Kamera stoppen" : "Kamera starten";
   }
 }
-
 function stopCamera(msg?: string): void {
   running = false;
   source.stop();
@@ -294,7 +420,6 @@ function stopCamera(msg?: string): void {
   ui.start.textContent = "Kamera starten";
   if (msg) setStatus(msg, "info");
 }
-
 ui.start.addEventListener("click", () => (running ? stopCamera("Kamera aus.") : void startCamera()));
 ui.startBig.addEventListener("click", () => void startCamera());
 ui.flip.addEventListener("click", () => {
@@ -305,170 +430,61 @@ ui.flip.addEventListener("click", () => {
   }
 });
 ui.clear.addEventListener("click", () => {
-  sentence.length = 0;
-  renderSentence();
+  words.length = 0;
+  camWords.length = 0;
+  renderWords();
+  ui.sentenceDe.textContent = "";
+  ui.sentenceEn.textContent = "";
 });
 ui.copyLink.addEventListener("click", () => {
-  const url = ui.openinUrl.textContent ?? location.href;
-  void navigator.clipboard?.writeText(url).then(() => (ui.copyLink.textContent = "Kopiert"));
+  void navigator.clipboard?.writeText(ui.openinUrl.textContent ?? location.href).then(() => (ui.copyLink.textContent = "Kopiert"));
 });
-
-// Example: play recorded PopSign skeletons ("Kopf, Schmerz, bitte") through the same recogniser.
-let exampleTimer: number | null = null;
-function stopExample(): void {
-  if (exampleTimer !== null) clearTimeout(exampleTimer);
-  exampleTimer = null;
-}
-function playExample(): void {
-  if (running) stopCamera();
-  stopExample();
-  const words = ["head", "owie", "please"].filter((w) => replyClips[w]);
-  const frames: RawSeqFrame[] = [];
-  const rest = replyClips[words[0]!]?.[0];
-  for (const w of words) {
-    frames.push(...replyClips[w]!);
-    if (rest) for (let i = 0; i < 12; i++) frames.push({ points: rest.points, present: [rest.present[0], false, false, false] });
-  }
-  sentence.length = 0;
-  renderSentence();
-  segmenter.reset();
-  ui.placeholder.hidden = true;
-  ui.stage.dataset["mirrored"] = "false";
-  ui.stage.style.aspectRatio = "3 / 4";
-  ui.canvas.width = 390;
-  ui.canvas.height = 520;
-  setStatus("Beispiel: aufgezeichnete Skelettpunkte (kein Video) laufen durch dieselbe Erkennung.", "ok");
-  const fitEx = fitClip(frames, 390, 520);
-  let i = 0;
-  const t0 = performance.now();
-  const step = () => {
-    const due = document.visibilityState === "hidden" ? frames.length : Math.floor((performance.now() - t0) / 40);
-    while (i <= due && i < frames.length) {
-      const f = frames[i]!;
-      segmenter.push(aspectCorrect(f, 3, 4));
-      if (ctx) drawAvatar(ctx, f, fitEx, 390, 520);
-      i++;
-    }
-    ui.signing.hidden = !segmenter.inSign;
-    if (i >= frames.length) {
-      segmenter.flush();
-      ui.signing.hidden = true;
-      exampleTimer = null;
-      setStatus("Beispiel fertig. Kamera starten, um selbst zu gebärden.", "ok");
-      return;
-    }
-    exampleTimer = window.setTimeout(step, 20);
-  };
-  step();
-}
-ui.example.addEventListener("click", playExample);
-
-// ---------------------------------------------------------------- B: reply -> signing figure
-let playToken = 0;
-async function playReply(text: string): Promise<void> {
-  const tokens = textToSigns(text);
-  const my = ++playToken;
-  const W = 390, H = 520; // PopSign clips are 3:4 portrait
-  ui.avatar.width = W;
-  ui.avatar.height = H;
-  ui.tokens.textContent = "";
-  const chips = tokens.map((t) => {
-    const s = document.createElement("span");
-    s.className = `t${t.sign && replyClips[t.sign] ? " sign" : ""}`;
-    s.textContent = t.word;
-    ui.tokens.append(s);
-    return s;
-  });
-  const signed = tokens.filter((t) => t.sign && replyClips[t.sign]);
-  if (!signed.length) {
-    ui.avatarWord.textContent = text;
-    ui.avatarSub.textContent = "Für diese Wörter gibt es noch keine Gebärde.";
-    return;
-  }
-  // one fit for the whole reply, so the figure does not jump between words
-  const fit = fitClip(signed.flatMap((t) => replyClips[t.sign!]!), W, H);
-  for (let ti = 0; ti < tokens.length; ti++) {
-    const t = tokens[ti]!;
-    if (my !== playToken) return;
-    chips.forEach((c, j) => c.classList.toggle("now", j === ti));
-    if (!t.sign || !replyClips[t.sign]) continue;
-    ui.avatarWord.textContent = t.word.toUpperCase();
-    ui.avatarSub.textContent = `ASL: ${t.sign.toUpperCase()}`;
-    const clip = replyClips[t.sign]!;
-    const t0 = performance.now();
-    for (;;) {
-      if (my !== playToken) return;
-      const i = Math.floor((performance.now() - t0) / 50); // 0.8x speed: PopSign signs are quick
-      if (i >= clip.length) break;
-      if (actx) drawAvatar(actx, clip[i]!, fit, W, H);
-      await new Promise((r) => setTimeout(r, 30)); // a timer, not rAF: keeps going in a background tab
-    }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  chips.forEach((c) => c.classList.remove("now"));
-  ui.avatarSub.textContent = "Fertig. Zum Wiederholen erneut tippen.";
-}
-
-for (const q of QUICK_REPLIES) {
-  const b = document.createElement("button");
-  b.type = "button";
-  b.textContent = q.label;
-  b.addEventListener("click", () => {
-    ui.replyText.value = q.text;
-    void playReply(q.text);
-  });
-  ui.quick.append(b);
-}
-ui.replyGo.addEventListener("click", () => void playReply(ui.replyText.value));
-ui.replyText.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") void playReply(ui.replyText.value);
-});
-
-// Voice input (Web Speech API, where the browser offers it). Started only by a tap.
-type SR = { lang: string; interimResults: boolean; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: ((e: { error: string }) => void) | null; onend: (() => void) | null; start(): void; stop(): void };
-const SRCtor = (window as unknown as { SpeechRecognition?: new () => SR; webkitSpeechRecognition?: new () => SR }).SpeechRecognition ??
-  (window as unknown as { webkitSpeechRecognition?: new () => SR }).webkitSpeechRecognition;
-if (!SRCtor) {
-  ui.mic.hidden = true;
-  ui.micNote.textContent = "Spracheingabe gibt es in diesem Browser nicht; bitte tippen. Getippter Text bleibt auf dem Gerät.";
-} else {
-  ui.mic.addEventListener("click", () => {
-    const rec = new SRCtor();
-    rec.lang = "de-DE";
-    rec.interimResults = false;
-    ui.mic.textContent = "⏺";
-    rec.onresult = (e) => {
-      const text = e.results[0]?.[0]?.transcript ?? "";
-      ui.replyText.value = text;
-      void playReply(text);
-    };
-    rec.onerror = (e) => setStatus(`Spracheingabe: ${e.error}. Bitte tippen.`, "warn");
-    rec.onend = () => (ui.mic.textContent = "🎤");
-    rec.start();
-  });
-}
 
 // ---------------------------------------------------------------- start-up
 bindCameraLifecycle({ document, window }, () => {
-  if (running) stopCamera("Kamera gestoppt, weil die Seite verdeckt war. Zum Weitermachen „Kamera starten“.");
-  stopExample();
+  if (running) stopCamera("Kamera gestoppt, weil die Seite verdeckt war.");
+  player?.stop();
 });
-renderSentence();
-showTab("reply");
+renderWords();
 if (cameraProblemNow()) {
   ui.openinUrl.textContent = location.origin + location.pathname;
   ui.openin.hidden = false;
 }
-void Promise.allSettled([source.load(), loadSigns()]).then(([mp, signs]) => {
-  if (signs.status === "rejected") {
-    setStatus(`Gebärden-Daten fehlen: ${(signs.reason as Error).message}`, "error");
-    return;
+
+function renderCredits(d: DgsData): void {
+  ui.credits.textContent = "";
+  for (const [g, s] of Object.entries(d.signs)) {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = s.source;
+    a.rel = "noreferrer";
+    a.textContent = `${g}${s.substitute ? ` (gezeigt: ${s.shown})` : ""}`;
+    const lic = document.createElement("a");
+    lic.href = s.licenceUrl;
+    lic.rel = "noreferrer";
+    lic.textContent = s.licence;
+    li.append(a, `: ${s.credit}, `, lic);
+    ui.credits.append(li);
   }
-  if (mp.status === "rejected") {
-    setStatus(`Die Körper- und Handerkennung lädt nicht: ${(mp.reason as Error).message}. „Antworten“ und „Beispiel abspielen“ gehen trotzdem.`, "warn");
-    return;
-  }
-  modelsReady = true;
-  if (pendingStart) void startCamera();
-  else setStatus("Bereit. „Kamera starten“ oder „Beispiel abspielen“.", "ok");
-});
+}
+
+void loadDgs()
+  .then((d) => {
+    data = d;
+    player = new DgsPlayer(
+      { root: ui.player, video: $<HTMLVideoElement>("dgs-video"), canvas: $<HTMLCanvasElement>("dgs-skel"), card: $("card"), cardWord: $("card-word"), gloss: $("p-gloss"), word: $("p-word") },
+      d,
+    );
+    renderCredits(d);
+    setStatus(`Bereit: ${Object.keys(d.signs).length} DGS-Gebärden mit Video. „Szenario abspielen“ drücken.`, "ok");
+  })
+  .catch((err: Error) => setStatus(`Gebärden-Daten fehlen: ${err.message}`, "error"));
+void source
+  .load()
+  .then(() => {
+    mpReady = true;
+    if (pendingStart) void startCamera();
+  })
+  .catch((err: Error) => {
+    if (pendingStart) setStatus(`Die Körpererkennung lädt nicht: ${err.message}`, "warn");
+  });
