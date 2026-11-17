@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Same-origin only (D-004). Speech input, if used, is processed by the browser itself (see the note on the page). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self'; worker-src 'self' blob:; font-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#14161a" />
+    <title>Hands Up Apotheke</title>
+    <link rel="stylesheet" href="/src/live/live.css" />
+    <link rel="stylesheet" href="/src/pharmacy/pharmacy.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">✋</span>
+        <h1>Hands Up <span>Apotheke</span></h1>
+      </div>
+      <span class="badge">Forschungsdemo</span>
+    </header>
+
+    <main>
+      <p class="intro">
+        Ein gehörloser Kunde gebärdet, die Apotheke liest Text. Die Apotheke antwortet mit Text oder Sprache, und eine
+        Figur gebärdet die Antwort. <strong>Demo mit einigen Gebärden der Amerikanischen Gebärdensprache (ASL), noch nicht
+        DGS.</strong> Alles läuft auf diesem Gerät; das Video verlässt es nie.
+      </p>
+
+      <div class="modes" role="tablist">
+        <button id="tab-reply" class="mode active" role="tab" aria-selected="true" type="button">💬 Antworten</button>
+        <button id="tab-sign" class="mode" role="tab" aria-selected="false" type="button">👋 Kunde gebärdet</button>
+      </div>
+
+      <section id="status" class="status" role="status" aria-live="polite">Lade die Modelle…</section>
+
+      <section id="openin" class="panel openin" hidden>
+        <p><strong>Dieser Browser kann die Kamera nicht nutzen.</strong> Bitte die Seite in Safari oder Chrome öffnen:</p>
+        <p class="openin-url" id="openin-url"></p>
+        <div class="openin-actions"><button id="copy-link" type="button" class="primary">Link kopieren</button></div>
+      </section>
+
+      <!-- A: customer signs -> text -->
+      <section id="pane-sign" class="pane" hidden>
+        <p class="panel warn exp"><strong>Experimentell.</strong> Die Erkennung vergleicht mit Beispielen von nur ein bis drei Personen pro Gebärde. Bei neuen Personen liegt sie heute meist daneben (Test mit 12 Gebärden: bei neuen Personen ca. 29 % richtig, bei denselben Personen 87 %). „Beispiel abspielen“ zeigt den Ablauf mit aufgezeichneten Skelettpunkten. Für fließendes Gebärden: <a href="/live/">Live-Demo (DGS-Wetter)</a>.</p>
+        <div id="stage" class="stage" data-mirrored="true">
+          <video id="video" playsinline webkit-playsinline muted autoplay></video>
+          <canvas id="overlay"></canvas>
+          <div id="placeholder" class="placeholder">
+            <div>
+              <button id="start-big" type="button" class="primary big">▶ Kamera starten</button>
+              <p>Gebärden einzeln zeigen und die Hände dazwischen kurz senken.</p>
+            </div>
+          </div>
+          <div id="signing" class="signing-dot" hidden>● Gebärde…</div>
+        </div>
+        <div class="controls">
+          <button id="start" type="button" class="primary">Kamera starten</button>
+          <button id="flip" type="button">Kamera wechseln</button>
+          <button id="example" type="button">Beispiel abspielen</button>
+          <button id="clear" type="button">Löschen</button>
+        </div>
+        <div class="sentence-box">
+          <p class="label">Der Kunde sagt:</p>
+          <p id="sentence" class="sentence"><span class="muted">…</span></p>
+          <p id="sentence-en" class="sentence-en"></p>
+        </div>
+        <p class="known">Erkennt: <span id="known"></span></p>
+      </section>
+
+      <!-- B: pharmacist answers -> signs -->
+      <section id="pane-reply" class="pane">
+        <div class="stage avatar-stage">
+          <canvas id="avatar"></canvas>
+          <div class="live-caption"><p id="avatar-word" class="cap-de"></p><p id="avatar-sub" class="cap-en"></p></div>
+        </div>
+        <div class="quick" id="quick"></div>
+        <div class="reply-row">
+          <input id="reply-text" type="text" inputmode="text" placeholder="Antwort tippen, z. B. „Morgens mit Wasser“" aria-label="Antwort" />
+          <button id="reply-go" type="button" class="primary">Gebärden</button>
+          <button id="mic" type="button" title="Spracheingabe">🎤</button>
+        </div>
+        <p id="reply-tokens" class="tokens"></p>
+        <p class="fineprint" id="mic-note">Spracheingabe nutzt die Spracherkennung des Browsers; Chrome und Safari können das Audio dafür an Google oder Apple senden. Tippen geht immer und bleibt auf dem Gerät.</p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>
+        <strong>Forschungsdemo, kein Dolmetscher.</strong> Für wichtige Gespräche bitte eine Gebärdensprachdolmetscherin
+        oder einen Dolmetscher buchen. Gebärden-Beispiele: PopSign ASL v1.0 (Georgia Tech), CC BY 4.0, als
+        Skelettpunkte (MediaPipe), ohne Video. Die Erkennung vergleicht mit wenigen Beispielen und irrt sich oft.
+      </p>
+      <p class="credits">MediaPipe (Apache-2.0). Keine Cookies, keine Analyse, nichts wird gespeichert oder gesendet.</p>
+    </footer>
+    <script type="module" src="/src/pharmacy/main.ts"></script>
+  </body>
+</html>

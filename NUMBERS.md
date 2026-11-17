@@ -23,10 +23,17 @@ How to read this:
 | Support actually present | Only **7%** of people who needed communication support had it at their appointment | [Healthwatch](https://nds.healthwatch.co.uk/sites/default/files/reports_library/HWW%20Unheard%20underserved%20report%20Final%20updated.pdf) |
 | Avoiding care | **75%** said communication problems put them off booking a GP appointment; 56% had interpreter booking problems (local UK survey) | [Healthwatch Hartlepool](https://nds.healthwatch.co.uk/sites/default/files/reports_library/20230308_Hartlepool_Deaf%20Patient%20Experience%20Report%20FINAL%20%28004%29.pdf) |
 | Access to appointments | Hearing callers were **1.9×** more likely to get an appointment than deaf callers (US audit study) | via [Healthwatch library](https://nds.healthwatch.co.uk/node/1117790) ⚠️ cite as a US study |
+| Reading level of Deaf school leavers | **~90%** leave school reading at the level of a 9–10-year-old | Schüßler 1997, cited with Krammer 2001 and Hennies 2009 ([Krammer 2001, AAU Klagenfurt](https://www.aau.at/wp-content/uploads/2017/11/zgh-veroeffentlichung-bd-03.pdf)) ⚠️ old, cited second-hand |
+| Written vocabulary of Deaf adults | Many don't get much beyond **~2,000 words**, not enough for ordinary texts | [Krammer 2001](https://www.aau.at/wp-content/uploads/2017/11/zgh-veroeffentlichung-bd-03.pdf) (Austria) |
+| Hearing status and reading (DE) | Clear link between hearing status and reading skill in 49 hearing-impaired 4th graders, tested with IGLU tasks | [HU Berlin](https://edoc.hu-berlin.de/server/api/core/bitstreams/7054a62f-4341-4765-9c1b-e648899b1949/content), [Bildungsserver](https://www.bildungsserver.de/db/mlesen.html?Id=46705) |
+| US comparison | Median Deaf high-school graduate reads at a **4th-grade** level; over **17%** of Deaf adults have low literacy | [NSF paper](https://par.nsf.gov/servlets/purl/10267597) ⚠️ widely cited but disputed ([2025 review](https://www.ebsco.com/articles/education/dba1bdd0-2997-53fe-aa68-c874ab43182d/tales-of-a-fourth-grade-nothingburger-a-critical-inquiry-into-deficit-framed-research)) |
+| Deaf signers in DE who struggle with written German | **~40,000–65,000** (50–80% of 80k) | **Assumption.** No official German figure exists |
 
 **Headline for the pitch.** A 5-minute question at a pharmacy counter means booking an interpreter weeks ahead and paying at least €93 plus travel. Most counters never do it, so the signer writes notes or leaves.
 
 **Worked example (assumption).** One deaf person makes about 2 counter visits a month (pharmacy, Bürgeramt, doctor's reception). Covering each visit with a 1-hour interpreter minimum is 2 × €93 × 12 ≈ **€2,200 per person per year**. Across 80k people that is **~€180M a year in Germany** that nobody pays today, so the need goes unmet.
+
+**Literacy: why paper notes fail too.** Very few Deaf adults can't read at all. The problem is that written German is a second language, learned without hearing it, so many read only at a basic level. A written reply at the counter is often not understood. That is why replies to the signer default to pictures + simple text. On stage, say "studies suggest most Deaf school leavers read at primary-school level", not a hard number.
 
 ---
 
@@ -47,7 +54,24 @@ How to read this:
 - **SAM, EU:** about 8× Germany ≈ **€600M+ ARR** (assumption: other countries have similar counter density, and a new sign language is needed per country).
 - **SOM, 3 years:** 1,500 paying counters in DACH ≈ **€0.9M ARR**, which is about 1% of German counters.
 
-**Regulatory tailwind.** The German BFSG (European Accessibility Act) has applied since **28 Jun 2025**, with fines up to €100k. It does **not** explicitly require sign language, so don't claim it does. Public bodies already have duties under the BGG, and a federal competence centre for DGS is planned. ([IHK](https://www.ihk.de/oldenburg/geschaeftsfelder/rechtundsteuern/beratung-recht/wettbewerbsrecht/barrierefreiheit-ab-juni-2025-fuer-unternehmen-pflicht-6501402), [forum-verlag](https://forum-verlag.com/fachwissen/fuehrung-und-management/barrierefreiheitsstaerkungsgesetz-bfsg/), [Ärzteblatt on BGG](https://www.aerzteblatt.de/themen/menschen-mit-behinderungen/anderung-des-behindertengleichstellungsgesetzes-geplant-ed8c3d3a-074e-42bf-a44a-55d168e2a94d))
+### Regulatory tailwind
+
+German law mostly pays for **human interpreters**, and it covers public bodies far more than private businesses.
+
+| Law | What it does | Covers | Source |
+| --- | --- | --- | --- |
+| **BGG §6** (disability equality act) | Recognises DGS as a language of its own | Federal level | [Bundestag WD](https://www.bundestag.de/resource/blob/797574/5a74772ce4d74366728f1ab2eba29db9/WD-6-060-20-pdf-data.pdf) |
+| **BGG §9 + KHV** (communication aids ordinance) | Right to communicate in DGS with federal authorities; the authority pays at JVEG rates. Each state has a similar law for local offices like the Bürgeramt. The Deaf person chooses the aid | Public bodies | [BGG §9](https://gesetze.legal/bund/bgg/9), [KHV](https://www.agsv.bayern.de/wp-content/uploads/2018/08/KommunikationshilfenVO_Bund.pdf) |
+| **SGB I §17(2)** (social code) | The social benefit body pays for interpreters, e.g. the health insurer for a doctor's visit, or the Jobcenter | Health and benefits | [sozialversicherung-kompetent](https://sozialversicherung-kompetent.de/sozialversicherung/allgemeiner-teil/1166-ausfuehrung-sozialleistungen-gebaerdensprachdolmetscher.html) |
+| **BFSG** (European Accessibility Act, since **28 Jun 2025**, fines up to €100k) | Accessibility rules for private digital services. Bank information must be no harder than **B2** language level (§17 BFSGV). **Does not require sign language**, so don't claim it does | Private digital services, **not counters** | [§17 BFSGV](https://www.gesetze-im-internet.de/bfsgv/__17.html), [Berlin accessibility office](https://www.berlin.de/lb/digitale-barrierefreiheit/anforderungen/gebaerdensprache/), [IHK](https://www.ihk.de/oldenburg/geschaeftsfelder/rechtundsteuern/beratung-recht/wettbewerbsrecht/barrierefreiheit-ab-juni-2025-fuer-unternehmen-pflicht-6501402) |
+| **BGG reform** (Drucksache 21/5140) | Would require private businesses to make "reasonable accommodations" (angemessene Vorkehrungen), as long as they aren't a disproportionate burden | Private businesses | [reha-recht: cabinet draft](https://www.reha-recht.de/infothek/beitrag/artikel/regierungsentwurf-fuer-eine-reform-des-bgg-beschlossen), [reha-recht: first reading](https://www.reha-recht.de/infothek/beitrag/artikel/deutliche-kritik-an-bgg-aenderung-im-bundestag) ⚠️ **still in parliament** (cabinet 11 Feb 2026, first reading 7 May 2026, hearing 22 Jun 2026); no proof it has passed |
+
+**How Hands Up fits:**
+- **Public offices (Bürgeramt, Jobcenter): medium.** The duty exists, but the law means a booked human interpreter. Hands Up covers the short walk-in question where nobody books one. Say "the interpreter for the 5-minute question", never "replaces interpreters". The Deaf person chooses their aid, so it can't be forced on them.
+- **Pharmacies and practices: weak today, strong if the BGG reform passes.** No law requires DGS at a pharmacy counter yet. A €49/month tool is a textbook proportionate "reasonable accommodation". Pitch line: "ready for the BGG reform", not "required by law".
+- **BFSG:** no sign language duty. Its B2 rule for banks shows the law already cares about plain language, which supports the picture-reply design.
+
+Also planned: a federal competence centre for DGS ([Ärzteblatt on BGG](https://www.aerzteblatt.de/themen/menschen-mit-behinderungen/anderung-des-behindertengleichstellungsgesetzes-geplant-ed8c3d3a-074e-42bf-a44a-55d168e2a94d)).
 
 ---
 

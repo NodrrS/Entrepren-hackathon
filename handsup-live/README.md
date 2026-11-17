@@ -8,7 +8,7 @@ Live at **https://live.handsupai.com**. Open it on a phone, press Start and sign
 
 | Path | What it is |
 |---|---|
-| `apps/web` | The web app. `/live/` is the demo page (`src/live/`). `/` is a landmark test harness. |
+| `apps/web` | The web app. `/live/` is the demo page (`src/live/`). `/pharmacy/` is the two-way pharmacy demo (`src/pharmacy/`, see `docs/PHARMACY_DEMO.md`). `/` is a landmark test harness. |
 | `packages/fc10-runtime` | The sign model in the browser: normalisation, 25 fps resampling, streaming with the KV cache, CTC decoding, and the gloss to English mapping. |
 | `packages/sign-engine` | Landmark schema and the MediaPipe Holistic adapter. |
 | `ml/export` | Python scripts that exported fc10 to ONNX and made the test fixtures (they need the thesis code; you won't need them to run the app). |
@@ -56,6 +56,6 @@ The camera needs HTTPS or localhost. To test on a phone, use the deployed site, 
 
 ## Rules for the team
 
-- Don't commit model files, PHOENIX data or demo landmarks (`.gitignore` covers them).
+- Don't commit model files, PHOENIX data or demo landmarks (`.gitignore` covers them). The pharmacy data `apps/web/public/pharmacy/signs.json` (PopSign ASL v1.0, CC BY 4.0) is built by `node scripts/build-pharmacy-signs.mjs`.
 - Don't put API keys or tokens in the code.
 - Before changing the live site, ask Karmel. Deploys go through `deploy/live`.
