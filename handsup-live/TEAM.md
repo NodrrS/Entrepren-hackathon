@@ -11,6 +11,6 @@
 3. Open a pull request into `main`. When it is merged, the change goes to **dev.handsupai.com**.
 4. When Karmel is happy with dev, it is promoted to live.handsupai.com.
 
-Automatic deploys to dev turn on once Karmel adds the Cloudflare secrets to this repo (Settings, Secrets and variables, Actions: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and the variable `HANDSUP_DEPLOY_ENABLED` = `true`). Until then, ask Karmel to deploy.
+Automatic deploys to dev turn on once Karmel adds the Cloudflare secrets to this repo (Settings, Secrets and variables, Actions: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `HANDSUP_DEPLOY_ENABLED`). Until then, ask Karmel to deploy.
 
 Never commit tokens, model files or PHOENIX data.

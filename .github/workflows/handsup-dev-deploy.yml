@@ -7,7 +7,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ vars.HANDSUP_DEPLOY_ENABLED == 'true' }}
     defaults:
       run:
         working-directory: handsup-live
