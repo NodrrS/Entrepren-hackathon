@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { House } from "lucide-react";
+import { House, SwitchCamera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QUICK_PHONE } from "@/lib/replies";
 import type { Session } from "@/lib/useSession";
@@ -76,6 +76,13 @@ export function Signing({ s, active, onReply, onEnd }: { s: Session; active: boo
           <video ref={s.real.videoRef} muted playsInline className={cn("absolute inset-0 h-full w-full", s.useMock && "invisible")} />
           <canvas ref={s.real.canvasRef} className={cn("pointer-events-none absolute inset-0 h-full w-full", s.useMock && "invisible")} aria-hidden="true" />
           {s.useMock && <MockFigure active={s.running} className="absolute inset-0 h-full w-full" />}
+          {s.source === "camera" && s.real.mode === "camera" && (
+            <button type="button" onClick={() => void s.real.setFacing(s.real.facing === "user" ? "environment" : "user")}
+              aria-label={s.real.facing === "user" ? "Use the back camera" : "Use the front camera"}
+              className="absolute top-2 right-2 inline-flex h-11 items-center gap-1.5 rounded-full bg-stage-chip/90 px-3 text-sm font-semibold text-white">
+              <SwitchCamera className="h-5 w-5" aria-hidden="true" />{s.real.facing === "user" ? "Front" : "Back"}
+            </button>
+          )}
         </div>
         {!s.useMock && <p className="m-0 text-[13px] text-white/70" aria-live="polite">{s.real.statusText}</p>}
         <ul className="flex min-h-[2.25rem] flex-wrap gap-2" aria-label="Recognised signs">

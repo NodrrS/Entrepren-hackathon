@@ -168,6 +168,8 @@ export function CounterApp({ s, onSigner }: { s: Session; onSigner: () => void }
             label={ph.on ? (r.mode === "camera" ? "Apotheke · DGS · Kamera" : "Apotheke · DGS") : stageLabel}
             showSkeleton={r.showSkeleton}
             onToggleSkeleton={() => r.setShowSkeleton(!r.showSkeleton)}
+            onFlip={r.mode === "camera" ? () => void r.setFacing(r.facing === "user" ? "environment" : "user") : undefined}
+            flipLabel={r.facing === "user" ? "Use the back camera" : "Use the front camera"}
             drag={drag}
             dropHandlers={{
               onDragOver: (e: React.DragEvent) => { e.preventDefault(); if (!s.useMock) setDrag(true); },

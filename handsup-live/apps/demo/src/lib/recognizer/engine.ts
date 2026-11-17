@@ -44,7 +44,11 @@ export interface Snapshot {
   readonly mode: Mode;
   readonly lines: CaptionLine[];
   readonly showSkeleton: boolean;
+  /** Which camera: "user" is the front (selfie) camera, "environment" the back one. */
+  readonly facing: Facing;
 }
+
+export type Facing = "user" | "environment";
 
 interface Line {
   id: number;
@@ -111,6 +115,7 @@ export class RecognizerEngine {
     mode: "idle",
     lines: [],
     showSkeleton: true,
+    facing: "user",
   };
   private readonly listeners = new Set<() => void>();
   private readonly finalListeners = new Set<(line: CaptionLine) => void>();
@@ -126,7 +131,7 @@ export class RecognizerEngine {
   private source: HolisticWebSource;
   private delegatePref: "GPU" | "CPU" = new URLSearchParams(location.search).get("delegate") === "CPU" ? "CPU" : "GPU";
   private mediaProvider: (c: MediaStreamConstraints) => Promise<MediaStream> = (c) => navigator.mediaDevices.getUserMedia(c);
-  private facing: "user" | "environment" = "user";
+  private facing: Facing = "user";
 
   private runner: OrtRunner | null = null;
   private stream: Fc10Stream | null = null;
@@ -331,7 +336,40 @@ export class RecognizerEngine {
   }
 
   private cameraConstraints(): MediaStreamConstraints {
-    return { audio: false, video: { facingMode: { ideal: this.facing }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } } };
+    return { audio: false, video: { facingMode: { exact: this.facing }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } } };
+  }
+
+  /**
+   * Opens the chosen camera. Phones get exactly that side (some phones open the back camera when only asked
+   * nicely); a device with one camera (a laptop) cannot satisfy "exact", so it falls back to any camera.
+   */
+  private async openCamera(c: MediaStreamConstraints): Promise<MediaStream> {
+    try {
+      return await navigator.mediaDevices.getUserMedia(c);
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      if (name !== "OverconstrainedError" && name !== "NotFoundError" && name !== "ConstraintNotSatisfiedError") throw err;
+      const video = typeof c.video === "object" ? { ...c.video, facingMode: { ideal: this.facing } } : true;
+      return navigator.mediaDevices.getUserMedia({ ...c, video });
+    }
+  }
+
+  /** Switches between the front and the back camera; a running camera restarts on the new side. */
+  async setFacing(facing: Facing): Promise<void> {
+    if (facing === this.facing) return;
+    this.facing = facing;
+    this.update({ facing });
+    if (this.snap.mode !== "camera") return;
+    this.source.stop();
+    this.setMode("camera"); // mirroring follows the side
+    this.setStatus("Switching the camera…");
+    try {
+      await this.source.start();
+      if (this.snap.mode === "camera") this.setStatus("Live. Sign to the camera; captions appear below the video.", "ok");
+    } catch (err) {
+      this.setMode("idle");
+      this.showError(err as EngineError);
+    }
   }
 
   /** MediaPipe failed while running: on GPU, retry once on CPU. */
@@ -457,7 +495,7 @@ export class RecognizerEngine {
     }
     if (this.disposed || !this.stream) return;
     this.stopAll();
-    this.mediaProvider = (c) => navigator.mediaDevices.getUserMedia(c);
+    this.mediaProvider = (c) => this.openCamera(c);
     this.resetForRun("camera");
     this.setMode("camera");
     this.setStatus("Opening the camera…");

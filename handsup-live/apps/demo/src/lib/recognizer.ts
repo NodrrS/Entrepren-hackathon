@@ -4,12 +4,12 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import type { LandmarkFrame } from "@handsup/sign-engine";
-import { RecognizerEngine, type CaptionLine, type Crop, type Mode, type Phase, type Snapshot, type StatusKind } from "./recognizer/engine";
+import { RecognizerEngine, type CaptionLine, type Crop, type Facing, type Mode, type Phase, type Snapshot, type StatusKind } from "./recognizer/engine";
 
 export type Lang = "en" | "de";
 export type RecognizerMode = Mode;
 export type RecognizerPhase = Phase;
-export type { CaptionLine, Crop };
+export type { CaptionLine, Crop, Facing };
 
 export interface RecognizerApi {
   phase: RecognizerPhase;
@@ -22,6 +22,9 @@ export interface RecognizerApi {
   canvasRef: RefObject<HTMLCanvasElement>;
   showSkeleton: boolean;
   setShowSkeleton(v: boolean): void;
+  /** Front ("user") or back ("environment") camera; switching restarts a running camera. */
+  facing: Facing;
+  setFacing(f: Facing): Promise<void>;
   startCamera(): Promise<void>;
   /** Plays a recorded example clip: the one at `index`, or the next in turn without an index. */
   startDemo(index?: number): Promise<void>;
@@ -43,6 +46,7 @@ const EMPTY: Snapshot = {
   mode: "idle",
   lines: [],
   showSkeleton: true,
+  facing: "user",
 };
 const noopSubscribe = (): (() => void) => () => {};
 const getEmpty = (): Snapshot => EMPTY;
@@ -86,6 +90,7 @@ export function useRecognizer(): RecognizerApi {
   const startUpload = useCallback(async (file: File, crop?: Crop) => void (await engineRef.current?.startUpload(file, crop)), []);
   const stop = useCallback(() => engineRef.current?.stop(), []);
   const setShowSkeleton = useCallback((v: boolean) => engineRef.current?.setShowSkeleton(v), []);
+  const setFacing = useCallback(async (f: Facing) => void (await engineRef.current?.setFacing(f)), []);
   const onLineFinal = useCallback((cb: (line: CaptionLine) => void) => {
     finalCbs.current.add(cb);
     return () => {
@@ -115,7 +120,9 @@ export function useRecognizer(): RecognizerApi {
       videoRef,
       canvasRef,
       showSkeleton: snap.showSkeleton,
+      facing: snap.facing,
       setShowSkeleton,
+      setFacing,
       startCamera,
       startDemo,
       startUpload,
@@ -124,6 +131,6 @@ export function useRecognizer(): RecognizerApi {
       onLandmarks,
       setFc10Enabled,
     }),
-    [snap, videoRef, canvasRef, setShowSkeleton, startCamera, startDemo, startUpload, stop, onLineFinal, onLandmarks, setFc10Enabled],
+    [snap, videoRef, canvasRef, setShowSkeleton, setFacing, startCamera, startDemo, startUpload, stop, onLineFinal, onLandmarks, setFc10Enabled],
   );
 }
