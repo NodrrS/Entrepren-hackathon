@@ -1,0 +1,18 @@
+# Cloudflare headers for the /live build (Workers static assets and Pages read this file).
+# The page also carries its own Content-Security-Policy <meta> (same origin only).
+# No COOP/COEP isolation: ONNX Runtime runs single-threaded, so SharedArrayBuffer is not needed.
+/*
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), interest-cohort=()
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  Cross-Origin-Opener-Policy: same-origin
+  X-Frame-Options: DENY
+  Strict-Transport-Security: max-age=31536000
+/app/*
+  Cache-Control: public, max-age=31536000, immutable
+/models/*
+  Cache-Control: public, max-age=2592000
+/mediapipe/*
+  Cache-Control: public, max-age=2592000
+/demo/*
+  Cache-Control: public, max-age=86400

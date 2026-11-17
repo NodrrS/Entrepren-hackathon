@@ -1,0 +1,24 @@
+{
+  "name": "@handsup/fc10-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "On-device streaming runtime for the thesis model fc10 (MediaPipe pose+hands -> DGS weather glosses): normalisation, 25 fps resampling, chunking with KV cache, CTC closure decoding. Research model, non-commercial (PHOENIX-2014).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./ort": "./src/ort.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  },
+  "dependencies": {
+    "onnxruntime-web": "1.31.1"
+  }
+}

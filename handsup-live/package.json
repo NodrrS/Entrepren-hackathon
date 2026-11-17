@@ -1,0 +1,21 @@
+{
+  "name": "hands-up",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Hands Up: real-time sign language to speech (monorepo root).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "check:licences": "node scripts/check-licences.mjs",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run check:licences && npm run test:scripts && npm run typecheck && npm run test --workspaces --if-present"
+  }
+}

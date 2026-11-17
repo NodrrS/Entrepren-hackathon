@@ -1,0 +1,17 @@
+// live.handsupai.com: assets-only Cloudflare Worker (free plan, no Worker code) serving the apps/web build.
+// First deployed 2026-11-17 by the SuperManager session on the owner's instruction (Worker "hands-up-live").
+// Redeploy (owner or SuperManager; needs the wrangler login on this PC):
+//   npm run build -w @handsup/web
+//   cd deploy/live && wrangler deploy
+// apps/web/public/_headers and _redirects (/ -> /live/) are honoured by Workers static assets.
+{
+  "name": "hands-up-live",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "../../apps/web/dist",
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [{ "pattern": "live.handsupai.com", "custom_domain": true }],
+  "workers_dev": false,
+  "observability": { "enabled": false }
+}

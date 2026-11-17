@@ -1,0 +1,33 @@
+{
+  "comment": "Pinned MediaPipe assets (D-014). WASM hashes are recorded by `npm run wasm:sync -- --record`; the .task hash by `npm run models:pin` after an approved download. Files themselves are gitignored.",
+  "tasksVision": "1.0.1",
+  "wasmBasePath": "/mediapipe/wasm",
+  "wasm": {
+    "vision_wasm_internal.js": {
+      "sha256": "e170ee67dd4e16c1a6fcd8840a206687e5a59b22c20e4a902bc445b095454d73",
+      "sizeBytes": 323377
+    },
+    "vision_wasm_internal.wasm": {
+      "sha256": "8da277a733926eacd0474b8704b36742d6ec3231c57a860c5b889dff8f1df886",
+      "sizeBytes": 11756954
+    },
+    "vision_wasm_nosimd_internal.js": {
+      "sha256": "e81d715a3d42cc3373602eb2f7aff795d164934db680e32496b65dab537f9658",
+      "sizeBytes": 323180
+    },
+    "vision_wasm_nosimd_internal.wasm": {
+      "sha256": "a28483cd42e74e855bf5ebdb6b40d9b66a5b49e35e95020bc97669e6822a3192",
+      "sizeBytes": 10960242
+    }
+  },
+  "models": {
+    "holistic_landmarker.task": {
+      "path": "/models/holistic_landmarker.task",
+      "sourceUrl": "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/1/holistic_landmarker.task",
+      "sizeBytes": 13683609,
+      "gcsMd5Base64": "3ZywDp2ZM9rHmI2M40e6ew==",
+      "licence": "Apache-2.0 (all 3 sub-models: BlazePose GHUM 3D, Hand Tracking, FaceMesh V2 model cards, checked 2026-10-07)",
+      "sha256": "e2dab61191e2dcd0a15f943d8e3ed1dce13c82dfa597b9dd39f562975a50c3f8"
+    }
+  }
+}
