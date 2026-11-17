@@ -54,5 +54,10 @@ apps/web/public/demo/
 deploy/handsupai/public/
 deploy/handsupai/.wrangler/
 
+# demo app (apps/demo): files copied in by apps/demo/scripts/sync-assets.mjs, never committed
+apps/demo/public/models/
+apps/demo/public/mediapipe/
+apps/demo/public/demo/
+
 # /pharmacy demo data (PopSign-derived landmarks; built by scripts/build-pharmacy-signs.mjs)
 apps/web/public/pharmacy/

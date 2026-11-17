@@ -1,0 +1,154 @@
+/*
+ * Tailwind v4 entry: config lives here, with no tailwind.config.js or PostCSS plugin.
+ * - Keep every @import in this top block, above @theme and the rest of the file. Install an
+ *   npm package before @importing its CSS. Never @import a remote URL (web fonts, CDN CSS): the
+ *   build resolves @import from the filesystem. Load those with a <link> in the head() of
+ *   src/routes/__root.tsx and name the family in a --font-* token in @theme inline below.
+ */
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/space-grotesk";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The design lives in this file: oklch color tokens on the shadcn variables
+ * (--background, --foreground, --primary, --secondary, --muted, --accent, ...) plus
+ * new tokens as needed, font tokens, and custom styles and animations.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-coral: var(--coral);
+  --color-stage: var(--stage);
+  --color-stage-chip: var(--stage-chip);
+  --color-hairline: var(--hairline);
+  --color-link: var(--link);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-ink: var(--ok-ink);
+  --color-info-soft: var(--info-soft);
+  --color-info-ink: var(--info-ink);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Space Grotesk Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Hands Up design: tokens taken from design/mockups/static/4-counter-staff.html (counter staff view).
+   Orange #FF5A36 with near-black text on it (white on orange fails contrast at small sizes). Light only;
+   the camera stage stays dark (#1B1B1B). */
+:root {
+  --radius: 1.25rem;
+  --ink: oklch(0.191 0 0); /* #141414 */
+  --coral: oklch(0.684 0.207 33.9); /* #FF5A36 */
+  --background: oklch(1 0 0);
+  --foreground: var(--ink);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--ink);
+  --popover: var(--card);
+  --popover-foreground: var(--ink);
+  --primary: var(--coral);
+  --primary-foreground: var(--ink);
+  --secondary: oklch(0.961 0 0); /* #F2F2F2 chips */
+  --secondary-foreground: var(--ink);
+  --muted: oklch(0.961 0 0);
+  --muted-foreground: oklch(0.482 0 0); /* #5E5E5E */
+  --accent: oklch(0.955 0 0); /* #F0F0F0 hover, grey bubbles */
+  --accent-foreground: var(--ink);
+  --destructive: oklch(0.52 0.2 25);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.876 0 0); /* #D6D6D6 controls */
+  --hairline: oklch(0.943 0 0); /* #ECECEC header rule */
+  --input: oklch(0.876 0 0);
+  --ring: var(--coral);
+  --stage: oklch(0.222 0 0); /* #1B1B1B */
+  --stage-chip: oklch(0.301 0 0); /* #2E2E2E */
+  --link: oklch(0.529 0.167 34.4); /* #B83A1C */
+  --ok: oklch(0.55 0.15 150);
+  --ok-soft: oklch(0.958 0.013 159.9); /* #EAF4EE latency badge */
+  --ok-ink: oklch(0.43 0.093 152.8); /* #1D5E36 */
+  --info-soft: oklch(0.954 0.016 262.8); /* #EAF0FB */
+  --info-ink: oklch(0.377 0.108 261); /* #1E3F7A */
+  --warn: oklch(0.7 0.16 70);
+  --chart-1: var(--coral); --chart-2: var(--ok); --chart-3: var(--warn); --chart-4: var(--ink); --chart-5: var(--muted-foreground);
+  --sidebar: var(--card); --sidebar-foreground: var(--ink); --sidebar-primary: var(--coral); --sidebar-primary-foreground: var(--ink); --sidebar-accent: var(--accent); --sidebar-accent-foreground: var(--ink); --sidebar-border: var(--border); --sidebar-ring: var(--coral);
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+@layer base {
+  body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  h1, h2, h3 { font-family: var(--font-display); }
+}
+
+@keyframes word-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes eq { 0%,100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
+@utility animate-word-in { animation: word-in 260ms ease-out both; }
+@utility animate-eq { animation: eq 900ms ease-in-out infinite; transform-origin: bottom; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
